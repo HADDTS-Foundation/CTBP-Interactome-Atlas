@@ -251,6 +251,9 @@ attribution**.
     dz, tract:[…], areas:{ "<EFO therapeutic area>": score, … }, dis:[{n,s},…],
     func, funcRefs:[…], refs:[…], syn:[…],
     intact:{type,direct,miscore,methods:[…],pmids:[…],count},
+    biogrid:{count,methods:[…],pmids:[…]}|absent,  // BioGRID curated PHYSICAL interactions with the
+                                  //   hub(s): HUMAN only, yeast-two-hybrid EXCLUDED (release id in meta).
+                                  //   Combined across hubs like `intact`; present only when count ≥ 1.
     clinvar:{plp,vus,total}, pathways:[…], phenotypes:[…], phenoCount,
     aging:{ genage:bool, longevity:bool, why, id, pmids:[…] }   // present only if a member
   }, … ],
@@ -284,8 +287,8 @@ if that query genuinely failed to fetch; the dossier then says so.
 The data fetch/build pipeline and the full source list are specified in **`data/data_build_prompt.md`**,
 which you **run first**. It builds the `data/` pipeline (Python standard library only), fetches both
 hubs' STRING neighbourhoods symmetrically from the public sources (STRING, Open Targets, IntAct,
-Europe PMC, UniProtKB, NCBI ClinVar, HPO, Reactome, GenAge / LongevityMap, MyGene), merges them, and
-emits `app-data.js` matching §4. Build the front end against the resulting `app-data.js`.
+Europe PMC, UniProtKB, NCBI ClinVar, HPO, Reactome, GenAge / LongevityMap, MyGene, BioGRID), merges
+them, and emits `app-data.js` matching §4. Build the front end against the resulting `app-data.js`.
 
 Two cross-cutting rules the front end must honour so its links reproduce the pipeline's counts:
 - **Europe PMC co-mention** — the in-app query builder must be **byte-identical** to the pipeline's
@@ -321,12 +324,17 @@ non-null).
 ### 6.2 Connection type (keys off **physical** evidence, never the DB channel alone)
 ```
 Core complex          if s.c ≥ 0.9 AND (s.e ≥ 0.5 OR IntAct direct)
-Physical interactor   else if s.e ≥ 0.2 OR IntAct (direct|physical association)
+Physical interactor   else if s.e ≥ 0.2 OR IntAct (direct|physical association) OR BioGRID physical
 Literature-linked     else if lit ≥ 0.6 AND phys < 0.45
 Functional neighbour  else if ctx ≥ 0.45 AND phys < 0.45
 Associated            otherwise
 ```
-A DB-only pair must **never** be typed as a physical complex member.
+A DB-only pair must **never** be typed as a physical complex member. **BioGRID physical** = `node.biogrid`
+present with `count ≥ 1`; because that layer is already curated to **human, physical, yeast-two-hybrid-
+excluded** experimental evidence (§8), it is admitted to the **Physical interactor** tier alongside
+IntAct (it is experimental support, not the STRING DB channel, so the "never DB-only" rule still holds).
+**Core complex** stays stricter (IntAct *direct* or strong experiments), so BioGRID alone does not
+promote a pair to Core.
 
 ### 6.3 The fields — five SECTOR fields + cross-cutting overlay/filter fields (read §2.4)
 Ten **fields** (biology/disease lenses), in this order, each shown as a lens, a per-gene flag, and a
@@ -577,7 +585,9 @@ via the header **ⓘ Sources** toggle (collapsed by default; see the Insight-bar
   one-click way back to the subject. A **disease-lens panel** shows the area's membership rule, its
   member genes ranked by strength, and, for the **Aging/longevity** lens only, the curated,
   ortholog-aware reading list (`hubs.<HUB>.agingRefs`, §8) clearly labelled as such. A **gene dossier**
-  shows that gene's hub-independent biology in this order: IntAct, **Literature** co-mention,
+  shows that gene's hub-independent biology in this order: IntAct, **BioGRID** (when present, directly
+  after IntAct: a curated **human physical, yeast-two-hybrid-excluded** interaction count with methods,
+  PMIDs and a `thebiogrid.org` link, labelled with the release id), **Literature** co-mention,
   **Area memberships**, top
   disease associations, Pathways (Reactome), Clinical variants (ClinVar), Clinical phenotypes (HPO),
   mechanism tags, "Open in databases" deep links, then — **at the very bottom, just above the AI
@@ -662,6 +672,17 @@ via the header **ⓘ Sources** toggle (collapsed by default; see the Insight-bar
   *Caenorhabditis elegans* life span." *Proc Natl Acad Sci U S A.* 2009;106(5):1496‑1501.
   **PMID 19164523 · PMCID PMC2635826 · DOI 10.1073/pnas.0802674106.** (This is a curation directive
   for the data/UI, not a test assertion — §9 still forbids the harness from pinning any paper.)
+- **BioGRID curated interactions (a second physical layer beside IntAct).** Source the key-free bulk
+  `BIOGRID-ALL-<release>.tab3.zip` (release pinned in `meta.sources`; the REST webservice is **not** used,
+  it needs a key, §2.1). **Researcher-directed filters, applied verbatim:** keep only **human–human**
+  (both `Organism ID` = 9606), **`Experimental System Type = physical`**, and **exclude yeast two-hybrid**
+  (`Experimental System` = `Two-hybrid`); **no cross-organism data and no conservation view** (the
+  consulted CtBP researcher's guidance: only human data is trustable, physical only, everything except
+  yeast two-hybrid, BioGRID as the sole source). Store `node.biogrid = {count, methods, pmids}` for each
+  partner's interaction with the hub(s) (combined across hubs, like `intact`); show it in the dossier
+  right after IntAct with the methods, PMIDs and a `thebiogrid.org` link, and feed it into the
+  connection type (§6.2, Physical-interactor tier). The 171 MB raw archive is **gitignored**; commit only
+  a small CtBP extract for reproducibility.
 
 ---
 
@@ -690,7 +711,9 @@ Run the **exact** `engine.js` against `app-data.js` and assert **generic invaria
   nodes.length` and `shared + CTBP1-only + CTBP2-only == union`.
 - Data integrity: no unresolved ID stubs (every node has Ensembl + Entrez); ClinVar present &
   `P/LP ≤ total`; pathways have no broad umbrellas; ambiguous aliases dropped; co-mention tiers
-  monotonic; references present with valid PMIDs; HPO counts consistent.
+  monotonic; references present with valid PMIDs; HPO counts consistent; where `node.biogrid` exists,
+  `count ≥ 1`, PMIDs valid, and `methods` contain **no** yeast-two-hybrid term (the physical/non-Y2H
+  filter held).
 - **Forbidden**: any assertion pinning a named gene to a rank/area/type, or requiring a specific
   disease/paper to appear.
 

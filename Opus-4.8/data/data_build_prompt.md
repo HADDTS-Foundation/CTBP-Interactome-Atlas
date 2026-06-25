@@ -86,6 +86,7 @@ UniProt `Q13363`; CTBP2 = Ensembl `ENSG00000175029`, Entrez `1488`, UniProt `P56
 | **STRING v12** (`string-db.org/api`) | each hub's ~250-gene neighbourhood, 7 channel scores + combined, and the partner↔partner edges | top‑250 by combined score is a stated curation choice; drop nodes lacking a resolvable Ensembl+Entrez (so each hub holds ≤250). Fetch the **hub edge** CTBP1↔CTBP2 explicitly. |
 | **Open Targets v4** (GraphQL, `api.platform.opentargets.org/api/v4/graphql`) | per-gene disease associations (top‑20), EFO therapeutic-area aggregation, tractability, function descriptions | `areas` = **sum of association score per `therapeuticAreas` entry**. Keep the EFO area labels verbatim (the engine keys off them, see §7). |
 | **IntAct** (EBI REST: `ebi.ac.uk/intact/ws/interaction/findInteractions/<HUB>`) | curated experimental interactions per hub: type (incl. *direct interaction*), detection method, PMID, MI-score | PSICQUIC is retired — use this REST ws; keep **human–human** only. Run **per hub** so each hub's `intact`-style evidence is its own. |
+| **BioGRID** (key-free bulk download, `downloads.thebiogrid.org`, release **5.0.258**, `BIOGRID-ALL-<rel>.tab3.zip`) | a second curated physical-interaction layer for each hub–partner pair: `node.biogrid = {count, methods[], pmids[]}` | **Key-free by design** (the REST webservice needs an access key, which §2.1 forbids; the bulk `.tab3` download does not). **Researcher-directed filters (verbatim decisions):** keep only **human–human** (both `Organism ID` = 9606), **`Experimental System Type = physical`** (no genetic), and **exclude yeast two-hybrid** (`Experimental System` = `Two-hybrid`, the classic false-positive source). **No cross-organism / no conservation view** (the consulted CtBP researcher: only human data is trustable). Stream-filter the 171 MB zip to the CtBP-involving rows; the raw file is **gitignored**, a small CtBP extract is **committed** for reproducibility. |
 | **Europe PMC** (`ebi.ac.uk/europepmc/webservices/rest/search`) | tiered, synonym-aware co-mention counts (title / title+abstract / full-text) **per hub**, + the actual papers | see §6 for the exact query rules. Build `comention1`/`comention2` and `lit1`/`lit2`. |
 | **UniProtKB** (`rest.uniprot.org`, e.g. `Q13363`) | function, NAD cofactor, complex membership, function-evidence PMIDs | |
 | **NCBI ClinVar** (eutils esearch, `retmode=json`) | per-gene P/LP · VUS · total variant counts | **Must** use the `[Filter]` tokens `clinsig_pathogenic`, `clinsig_likely_path`, `clinsig_vus` — **NOT** `[Clinical significance]` (Entrez maps that to free text → wrong counts). Store so the app's count links can mirror these exact tokens. |
@@ -123,7 +124,13 @@ in the middle). Suggested step breakdown (names map to the realised pipeline):
 9. **`annotate`** — UniProt function/cofactor; Reactome leaf pathways (umbrella-filtered); HPO
    `phenotypes` + `phenoCount`; GO terms.
 10. **`genage`** — GenAge ∪ LongevityMap → `node.aging` with provenance (`why`/`id` or PubMed `pmids`).
-11. **`fix-ups`** — small, documented, idempotent corrections.
+11. **`biogrid`** — read the key-free `BIOGRID-ALL-<rel>.tab3.zip` (download to `data/BioGRID/` if absent,
+    or use a copy placed there), **stream-filter** to rows where one interactor is CTBP1/CTBP2, both
+    interactors are human (9606), `Experimental System Type = physical`, and `Experimental System ≠
+    Two-hybrid`; per partner write `node.biogrid = {count, methods[], pmids[]}` (the gene's curated
+    physical, non-Y2H BioGRID interactions with the hub(s), combined across hubs like `intact`). Write the
+    BioGRID release id into `meta.sources`; commit the small CtBP extract, gitignore the raw zip.
+12. **`fix-ups`** — small, documented, idempotent corrections.
 
 Run with `python3 data/run_all.py` (needs network, a few thousand live API calls). **Both hubs must be
 fetched and merged before the snapshot is valid.**
@@ -207,6 +214,8 @@ well-formed, so the data build can be verified before the app exists:
 - co-mention tiers monotonic per node (`title ≤ abs ≤ all`) for both hubs and the both-hub set;
 - ClinVar present and `plp ≤ total` (nodes and both hubs); no Reactome **umbrella** terms in `pathways`;
   ambiguous-homograph aliases dropped from `syn`;
+- where `node.biogrid` is present: `count` ≥ 1 with valid PMIDs, and its `methods` contain **no**
+  yeast-two-hybrid term (`Two-hybrid`) — the physical, non-Y2H filter held;
 - `meta.neighborhood.union == nodes.length` and `shared + CTBP1-only + CTBP2-only == union`;
   `meta.nodeCount == nodes.length + 2`; both hubs declared.
 

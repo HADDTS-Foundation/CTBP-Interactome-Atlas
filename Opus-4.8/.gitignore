@@ -5,6 +5,10 @@ data/_work.json
 data/_work.json.bak-*
 app-data.js.bak-*
 data/__pycache__/
+# BioGRID: ignore the large raw archive(s); the small CtBP extract .tsv IS committed
+data/BioGRID/*.zip
+data/BioGRID/*.tab3.txt
+data/BioGRID/*.part
 *.log
 *.tmp
 .DS_Store

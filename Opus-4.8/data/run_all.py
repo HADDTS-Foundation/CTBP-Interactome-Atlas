@@ -29,6 +29,7 @@ STEPS = [
     "evidence",     # IntAct + Europe PMC co-mention tiers
     "annotate",     # UniProt / Reactome / HPO / GO / ClinVar
     "genage",       # GenAge ∪ LongevityMap
+    "biogrid",      # BioGRID human physical interactions (yeast two-hybrid excluded)
     "fixups",       # documented idempotent corrections
 ]
 

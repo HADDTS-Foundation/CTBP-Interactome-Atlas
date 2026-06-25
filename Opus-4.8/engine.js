@@ -187,8 +187,11 @@
     var s = sc.s, ia = node.intact;
     var iaDirect = !!(ia && ia.direct);
     var iaPhys = !!(ia && (ia.direct || /physical association|direct interaction/i.test(ia.type || '')));
+    // BioGRID layer is already curated to human, physical, yeast-two-hybrid-excluded
+    // evidence (data §8), so a non-empty count is physical support (not the DB channel).
+    var bgPhys = !!(node.biogrid && node.biogrid.count > 0);
     if (num(s.c) >= 0.9 && (num(s.e) >= 0.5 || iaDirect)) return 'Core complex';
-    if (num(s.e) >= 0.2 || iaPhys) return 'Physical interactor';
+    if (num(s.e) >= 0.2 || iaPhys || bgPhys) return 'Physical interactor';
     if (sc.lit >= 0.6 && sc.phys < 0.45) return 'Literature-linked';
     if (sc.ctx >= 0.45 && sc.phys < 0.45) return 'Functional neighbour';
     return 'Associated';

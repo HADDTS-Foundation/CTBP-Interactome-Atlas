@@ -52,6 +52,7 @@
     ot: function (g) { return 'https://platform.opentargets.org/target/' + g + '/associations'; },
     otDisease: function (g) { return 'https://platform.opentargets.org/target/' + g + '/associations'; },
     intact: function (s) { return 'https://www.ebi.ac.uk/intact/search?query=' + encodeURIComponent(s); },
+    biogrid: function (s) { return 'https://thebiogrid.org/search.php?search=' + encodeURIComponent(s) + '&organism=9606'; },
     monarch: function (e) { return 'https://monarchinitiative.org/NCBIGene:' + e; },
     hpoApi: function (e) { return 'https://ontology.jax.org/api/network/annotation/NCBIGene:' + e; },
     reactome: function (name) { return 'https://reactome.org/content/query?q=' + encodeURIComponent(name) + '&species=Homo+sapiens'; },
@@ -92,6 +93,7 @@
     fields: 'The ten biology/disease lenses are an editorial choice of what to display. Which genes belong to each is decided only by the data (EFO area-sums, disease-name matches, or GenAge/LongevityMap membership), never by hand. The lenses are filters over the data, not objective facts about a gene.',
     composite: 'A heuristic prioritisation score (0 to 100) blending physical evidence (0.5), co-mention literature (0.3) and network context (0.2). The weights are a fixed editorial choice. It is not a probability, and not a measure of biological importance.',
     physical: 'STRING experiment + curated-database confidence (the combined score is deliberately excluded so text-mining is not double-counted). It is confidence, not proof of direct binding; "Core complex" and "Physical interactor" are labels of strong support, not proven complexes.',
+    biogrid: 'BioGRID curated physical interactions between this gene and the hub(s), restricted to human and with yeast two-hybrid excluded (a common false-positive source). It is curated experimental support, not proof of a direct complex, and the count reflects records in this BioGRID release.',
     literature: 'Synonym-aware co-mention counts from Europe PMC, in nested scopes: in title, then title+abstract (includes the title hits), then full text (includes both). For a shared gene a "both" row counts papers naming the gene with CTBP1 and CTBP2 together. Co-mention is correlation and is biased toward well-studied genes. It is not evidence of a physical or functional interaction.',
     ctx: 'Network context: the summed strength of a gene\'s partner-to-partner STRING edges (the two hubs excluded). It is topology, not functional proof.',
     conntype: 'A label derived from the physical evidence and IntAct, never from the database channel alone. It summarises the kind of support on record; it is not a verified molecular relationship.',
@@ -663,7 +665,7 @@
       if (b.cofactor) body += '<div class="kv"><span class="k">Cofactor</span><span class="v">' + esc(b.cofactor) + '</span></div>';
       if (b.litTotal != null) body += '<div class="kv"><span class="k">Literature (total) ' + gloss('literature') + '</span><span class="v"><a class="linkval" target="_blank" rel="noopener" href="' + L.epmc('(' + HUB_SYN[h].map(function (t) { return '"' + t + '"'; }).join(' OR ') + ')') + '">' + fmtN(b.litTotal) + ' ↗</a></span></div>';
       if (b.clinvar) body += clinvarRows(h, b.clinvar);
-      body += '<div class="dsec-h" style="margin-top:10px">Open in databases</div><div class="links-block">' + dbPills(h) + ' <a class="links" target="_blank" rel="noopener" href="' + L.intact(h) + '">IntAct ↗</a></div>';
+      body += '<div class="dsec-h" style="margin-top:10px">Open in databases</div><div class="links-block">' + dbPills(h) + ' <a class="links" target="_blank" rel="noopener" href="' + L.intact(h) + '">IntAct ↗</a> <a class="links" target="_blank" rel="noopener" href="' + L.biogrid(h) + '">BioGRID ↗</a></div>';
       if (b.note) body += '<p class="muted" style="margin-top:8px;font-size:11.5px">' + esc(b.note) + '</p>';
       body += '</div>';
     });
@@ -710,6 +712,17 @@
         '<div class="kv"><span class="k">Records</span><span class="v"><a class="linkval" target="_blank" rel="noopener" href="' + L.intact(sym) + '">' + fmtN(ia.count) + ' ↗</a></span></div>';
       if (ia.methods && ia.methods.length) body += '<div class="kv"><span class="k">Methods</span><span class="v" style="font-family:var(--sans);text-align:right;max-width:60%">' + esc(ia.methods.join(', ')) + '</span></div>';
       if (ia.pmids && ia.pmids.length) body += '<div style="margin-top:4px">' + ia.pmids.slice(0, 5).map(function (p) { return '<a class="links" target="_blank" rel="noopener" href="' + L.pubmed(p) + '">PMID ' + esc(p) + ' ↗</a>'; }).join(' ') + '</div>';
+      body += '</div>';
+    }
+
+    // BioGRID (curated human physical, yeast-two-hybrid excluded) — directly after IntAct
+    if (n.biogrid) {
+      var bg = n.biogrid;
+      body += '<div class="dsec"><div class="dsec-h">BioGRID (human physical) ' + gloss('biogrid') + '</div>' +
+        '<p class="muted" style="font-size:11px;margin:0 0 5px">Curated physical interactions with the hub(s), human only, yeast two-hybrid excluded.</p>' +
+        '<div class="kv"><span class="k">Interactions</span><span class="v"><a class="linkval" target="_blank" rel="noopener" href="' + L.biogrid(sym) + '">' + fmtN(bg.count) + ' ↗</a></span></div>';
+      if (bg.methods && bg.methods.length) body += '<div class="kv"><span class="k">Methods</span><span class="v" style="font-family:var(--sans);text-align:right;max-width:62%">' + esc(bg.methods.join(', ')) + '</span></div>';
+      if (bg.pmids && bg.pmids.length) body += '<div style="margin-top:4px">' + bg.pmids.slice(0, 6).map(function (p) { return '<a class="links" target="_blank" rel="noopener" href="' + L.pubmed(p) + '">PMID ' + esc(p) + ' ↗</a>'; }).join(' ') + '</div>';
       body += '</div>';
     }
 
@@ -773,6 +786,7 @@
       (n.uniprot ? '<a class="links" target="_blank" rel="noopener" href="' + L.uniprot(n.uniprot) + '">UniProt ↗</a>' : '') +
       '<a class="links" target="_blank" rel="noopener" href="' + L.ncbiGene(n.entrez) + '">NCBI Gene ↗</a>' +
       '<a class="links" target="_blank" rel="noopener" href="' + L.ensembl(n.ensembl) + '">Ensembl ↗</a>' +
+      '<a class="links" target="_blank" rel="noopener" href="' + L.biogrid(sym) + '">BioGRID ↗</a>' +
       (n.mim ? '<a class="links" target="_blank" rel="noopener" href="' + L.omim(n.mim) + '">OMIM ↗</a>' : '') +
       '</div></div>';
 
@@ -920,6 +934,7 @@
     s += 'Rank in neighbourhood: ' + (n.rank1 ? 'CTBP1 #' + n.rank1 : '') + (n.rank2 ? (n.rank1 ? ', ' : '') + 'CTBP2 #' + n.rank2 : '') + '\n';
     if (hc) s += 'Connection type: ' + hc.type + '\n';     // rank + type kept; NO composite/weights or channels line
     if (n.intact) s += 'IntAct: ' + (n.intact.type || '') + (n.intact.direct ? ' (direct)' : '') + ', MI ' + n.intact.miscore + ', ' + n.intact.count + ' records (' + L.intact(sym) + ')\n';
+    if (n.biogrid) s += 'BioGRID (human physical, no Y2H): ' + n.biogrid.count + ' interactions' + (n.biogrid.methods && n.biogrid.methods.length ? ' [' + n.biogrid.methods.join(', ') + ']' : '') + ' (' + L.biogrid(sym) + ')\n';
     ['CTBP1', 'CTBP2'].forEach(function (h) { var cm = h === 'CTBP1' ? n.comention1 : n.comention2; var nb = h === 'CTBP1' ? n.s1 : n.s2; if (cm) s += 'Co-mention with ' + h + (nb ? '' : ' (literature only, not a STRING neighbour)') + ': title ' + fmtN(cm.title) + ', title+abs ' + fmtN(cm.abs) + ', full-text ' + fmtN(cm.all) + '\n'; });
     if (n.comentionB) s += 'Co-mention with BOTH (CTBP1 + CTBP2): title ' + fmtN(n.comentionB.title) + ', title+abs ' + fmtN(n.comentionB.abs) + ', full-text ' + fmtN(n.comentionB.all) + '\n';
     if (o.fields.length) { s += 'Area memberships: ' + o.fields.map(function (f) { return f.label + (f.top && f.top.disease ? ' [' + f.top.disease + ' ' + fmtS(f.top.score) + ']' : (f.top && f.top.why ? ' [' + f.top.why + ']' : '')); }).join('; ') + '\n'; }

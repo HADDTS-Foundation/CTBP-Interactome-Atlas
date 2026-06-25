@@ -53,7 +53,7 @@ ok(D.meta && typeof D.meta === 'object', 'meta present');
 ok(Array.isArray(D.meta.hubs) && D.meta.hubs.join(',') === 'CTBP1,CTBP2', 'meta declares both hubs');
 
 // ── per-node invariants ──────────────────────────────────────────────────────
-let cvCount = 0, monoBad = 0, cm1 = 0, cm2 = 0, cmB = 0;
+let cvCount = 0, monoBad = 0, cm1 = 0, cm2 = 0, cmB = 0, bgCount = 0;
 for (const n of D.nodes) {
   const tag = n.sym || '(no sym)';
   ok(/^ENSG\d+$/.test(n.ensembl || ''), `${tag}: well-formed Ensembl`);
@@ -93,6 +93,14 @@ for (const n of D.nodes) {
     if (isNum(plp) && isNum(total)) ok(plp <= total, `${tag}: ClinVar plp ≤ total`);
   }
 
+  // BioGRID: human physical, yeast-two-hybrid excluded
+  if (n.biogrid) {
+    bgCount++;
+    ok(n.biogrid.count >= 1, `${tag}: BioGRID count ≥ 1`);
+    for (const m of n.biogrid.methods || []) ok(!/two-hybrid/i.test(m), `${tag}: BioGRID method not yeast two-hybrid (${m})`);
+    for (const p of n.biogrid.pmids || []) ok(/^\d+$/.test(String(p)), `${tag}: BioGRID PMID numeric`);
+  }
+
   // no Reactome umbrellas
   for (const p of n.pathways || []) {
     ok(!REACTOME_UMBRELLAS.has(String(p).toLowerCase()), `${tag}: pathway not an umbrella (${p})`);
@@ -109,6 +117,8 @@ ok(cm1 >= N * 0.9 && cm2 >= N * 0.9 && cmB >= N * 0.9,
    `co-mention present for both hubs + both on ≥90% of nodes (CTBP1 ${cm1}, CTBP2 ${cm2}, both ${cmB} of ${N})`);
 warnIf(cvCount < D.nodes.length * 0.8, `ClinVar coverage ${cvCount}/${D.nodes.length} (<80%)`);
 ok(cvCount >= D.nodes.length * 0.5, `ClinVar present for ≥50% of nodes (${cvCount}/${D.nodes.length})`);
+warnIf(bgCount === 0, `no BioGRID interactions attached (was the biogrid step run?)`);
+console.log(`  BioGRID: ${bgCount} nodes carry human physical (non-Y2H) interactions`);
 
 // ── both hubs ClinVar ─────────────────────────────────────────────────────────
 for (const H of ['CTBP1', 'CTBP2']) {

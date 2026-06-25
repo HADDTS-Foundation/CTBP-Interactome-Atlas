@@ -135,8 +135,18 @@ SOURCES = [
     {"name": "HPO", "url": "https://hpo.jax.org", "desc": "clinical phenotype terms"},
     {"name": "Reactome", "url": "https://reactome.org", "desc": "pathway membership (leaf pathways)"},
     {"name": "GenAge / LongevityMap", "url": "https://genomics.senescence.info", "desc": "ageing / longevity gene sets (HAGR)"},
+    {"name": "BioGRID", "url": "https://thebiogrid.org", "desc": "curated human physical interactions (release " + "5.0.258" + ", yeast two-hybrid excluded)"},
     {"name": "MyGene.info", "url": "https://mygene.info", "desc": "identifier resolution"},
 ]
+
+# BioGRID release used for the curated physical-interaction layer (§8 data prompt).
+BIOGRID_RELEASE = "5.0.258"
+BIOGRID_ALL_URL = ("https://downloads.thebiogrid.org/Download/BioGRID/Release-Archive/"
+                   "BIOGRID-" + BIOGRID_RELEASE + "/BIOGRID-ALL-" + BIOGRID_RELEASE + ".tab3.zip")
+
+
+def biogrid_gene_url(sym):
+    return "https://thebiogrid.org/search.php?search=" + urllib.parse.quote(sym) + "&organism=9606"
 
 USER_AGENT = ("CTBP-Interactome-Atlas/1.0 (offline research console; "
               "stdlib pipeline; contact via HADDTS Foundation)")
@@ -294,6 +304,33 @@ def fetch_zip(url, **kw):
         return None
 
 
+def download_to_file(url, dest, timeout=600):
+    """Stream a (large) URL to a file in chunks; skip if dest already exists.
+    Used for big bulk archives (e.g. BIOGRID-ALL) that must NOT go through the
+    in-memory JSON cache. Returns True on success/exists, False on failure."""
+    if os.path.exists(dest) and os.path.getsize(dest) > 0:
+        return True
+    os.makedirs(os.path.dirname(dest), exist_ok=True)
+    tmp = dest + ".part"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+        with urllib.request.urlopen(req, timeout=timeout) as resp, open(tmp, "wb") as fh:
+            while True:
+                chunk = resp.read(1 << 20)  # 1 MB
+                if not chunk:
+                    break
+                fh.write(chunk)
+        os.replace(tmp, dest)
+        return True
+    except Exception as e:
+        log("    · download failed: %s %s" % (type(e).__name__, url))
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+        return False
+
+
 # ── the working store (data/_work.json) ────────────────────────────────────────
 def new_work():
     return {
@@ -439,7 +476,7 @@ SHIPPED_NODE_FIELDS = [
     "sym", "name", "ensembl", "entrez", "uniprot", "mim",
     "hubs", "rank1", "rank2", "s1", "s2", "lit1", "lit2",
     "comention1", "comention2", "comentionB", "litB", "dz", "tract", "areas", "dis",
-    "func", "funcRefs", "refs", "syn", "intact", "clinvar",
+    "func", "funcRefs", "refs", "syn", "intact", "biogrid", "clinvar",
     "pathways", "phenotypes", "phenoCount", "aging",
 ]
 

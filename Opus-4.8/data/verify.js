@@ -124,8 +124,9 @@ const VALID_TYPES = new Set(['Core complex', 'Physical interactor', 'Literature-
       const ia = o.node.intact;
       const iaDirect = !!(ia && ia.direct);
       const iaPhys = !!(ia && (ia.direct || /physical association|direct interaction/i.test(ia.type || '')));
+      const bgPhys = !!(o.node.biogrid && o.node.biogrid.count > 0);
       if (c.type === 'Core complex') ok(num(s.c) >= 0.9 && (num(s.e) >= 0.5 || iaDirect), `${o.sym}/${h}: Core complex backed by experiments/IntAct, not DB alone`);
-      if (c.type === 'Physical interactor') ok(num(s.e) >= 0.2 || iaPhys, `${o.sym}/${h}: Physical backed by experiments/IntAct, not DB alone`);
+      if (c.type === 'Physical interactor') ok(num(s.e) >= 0.2 || iaPhys || bgPhys, `${o.sym}/${h}: Physical backed by experiments/IntAct/BioGRID, not DB alone`);
     });
   });
 });
@@ -175,7 +176,7 @@ ok(shared + c1 + c2 === D.nodes.length, 'shared + CTBP1-only + CTBP2-only == uni
 // ── 7. data integrity ─────────────────────────────────────────────────────────
 const UMBRELLAS = new Set(['signal transduction', 'metabolism', 'disease', 'gene expression (transcription)', 'immune system', 'metabolism of proteins', 'developmental biology', 'cell cycle', 'hemostasis', 'dna repair']);
 const BLOCK = new Set(['GLP1', 'P18', 'PC2', 'PH1', 'C21', 'DC42', 'IRA1']);
-let idBad = 0, cvBad = 0, monoBad = 0, pmidBad = 0, umb = 0, homo = 0, hpoBad = 0, cvCount = 0;
+let idBad = 0, cvBad = 0, monoBad = 0, pmidBad = 0, umb = 0, homo = 0, hpoBad = 0, cvCount = 0, bgBad = 0, bgCount = 0;
 D.nodes.forEach((n) => {
   if (!/^ENSG\d+$/.test(n.ensembl || '') || !/^\d+$/.test(String(n.entrez || ''))) idBad++;
   if (n.clinvar) { cvCount++; if (isNum(n.clinvar.plp) && isNum(n.clinvar.total) && n.clinvar.plp > n.clinvar.total) cvBad++; }
@@ -184,6 +185,12 @@ D.nodes.forEach((n) => {
   (n.syn || []).forEach((s) => { if (BLOCK.has(String(s).toUpperCase())) homo++; });
   (n.refs || []).forEach((r) => { if (!/^\d+$/.test(String(r.pmid || ''))) pmidBad++; });
   if (n.phenotypes && n.phenoCount != null && n.phenoCount < n.phenotypes.length) hpoBad++;
+  if (n.biogrid) {  // human, physical, yeast-two-hybrid-excluded curated layer
+    bgCount++;
+    if (!(n.biogrid.count >= 1)) bgBad++;
+    (n.biogrid.methods || []).forEach((m) => { if (/two-hybrid/i.test(m)) bgBad++; });
+    (n.biogrid.pmids || []).forEach((p) => { if (!/^\d+$/.test(String(p))) bgBad++; });
+  }
 });
 ok(idBad === 0, `every node has well-formed Ensembl + Entrez (${idBad} bad)`);
 ok(cvBad === 0, `ClinVar P/LP ≤ total wherever present (${cvBad} bad)`);
@@ -193,6 +200,7 @@ ok(homo === 0, `ambiguous homograph aliases dropped from syn (${homo} found)`);
 ok(pmidBad === 0, `references carry valid PMIDs (${pmidBad} bad)`);
 ok(hpoBad === 0, `HPO phenoCount consistent with phenotype list (${hpoBad} bad)`);
 ok(cvCount >= D.nodes.length * 0.5, `ClinVar present for the bulk of nodes (${cvCount}/${D.nodes.length})`);
+ok(bgBad === 0, `BioGRID records valid (count ≥ 1, PMIDs numeric, no yeast two-hybrid) — ${bgCount} nodes, ${bgBad} bad`);
 
 // ── report ───────────────────────────────────────────────────────────────────
 console.log(`\nverify (engine invariants): ${pass} passed, ${fail} failed`);
