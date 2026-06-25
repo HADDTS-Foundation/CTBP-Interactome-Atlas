@@ -53,7 +53,7 @@ ok(D.meta && typeof D.meta === 'object', 'meta present');
 ok(Array.isArray(D.meta.hubs) && D.meta.hubs.join(',') === 'CTBP1,CTBP2', 'meta declares both hubs');
 
 // ── per-node invariants ──────────────────────────────────────────────────────
-let cvCount = 0, monoBad = 0;
+let cvCount = 0, monoBad = 0, cm1 = 0, cm2 = 0, cmB = 0;
 for (const n of D.nodes) {
   const tag = n.sym || '(no sym)';
   ok(/^ENSG\d+$/.test(n.ensembl || ''), `${tag}: well-formed Ensembl`);
@@ -67,11 +67,13 @@ for (const n of D.nodes) {
   ok((n.hubs.includes('CTBP1')) === present(n, 's1'), `${tag}: CTBP1 ∈ hubs iff s1`);
   ok((n.hubs.includes('CTBP2')) === present(n, 's2'), `${tag}: CTBP2 ∈ hubs iff s2`);
 
-  // rank present iff that hub's score is; no per-hub field leaks for an untouched hub
+  // rank + STRING score are STRUCTURAL (present iff the node neighbours that hub).
   ok(present(n, 'rank1') === present(n, 's1'), `${tag}: rank1 iff s1`);
   ok(present(n, 'rank2') === present(n, 's2'), `${tag}: rank2 iff s2`);
-  if (!present(n, 's1')) ok(!present(n, 'lit1') && !present(n, 'comention1'), `${tag}: no CTBP1 fields without s1`);
-  if (!present(n, 's2')) ok(!present(n, 'lit2') && !present(n, 'comention2'), `${tag}: no CTBP2 fields without s2`);
+  // co-mention / lit / comentionB are hub-INDEPENDENT literature (present for any gene)
+  if (present(n, 'comention1')) cm1++;
+  if (present(n, 'comention2')) cm2++;
+  if (present(n, 'comentionB')) cmB++;
 
   // s.c numeric where a score exists
   if (present(n, 's1')) ok(isNum(n.s1.c), `${tag}: s1.c numeric`);
@@ -83,8 +85,6 @@ for (const n of D.nodes) {
       if (!(cm.title <= cm.abs && cm.abs <= cm.all)) monoBad++;
     }
   }
-  // both-hub co-mention only exists for shared genes
-  if (n.comentionB) ok(present(n, 's1') && present(n, 's2'), `${tag}: comentionB only on a shared node`);
 
   // ClinVar plp ≤ total wherever present
   if (n.clinvar) {
@@ -103,6 +103,10 @@ for (const n of D.nodes) {
   }
 }
 ok(monoBad === 0, `co-mention tiers monotonic (${monoBad} violations)`);
+// co-mention is hub-independent: every node should carry CTBP1, CTBP2 and both-hub counts
+const N = D.nodes.length;
+ok(cm1 >= N * 0.9 && cm2 >= N * 0.9 && cmB >= N * 0.9,
+   `co-mention present for both hubs + both on ≥90% of nodes (CTBP1 ${cm1}, CTBP2 ${cm2}, both ${cmB} of ${N})`);
 warnIf(cvCount < D.nodes.length * 0.8, `ClinVar coverage ${cvCount}/${D.nodes.length} (<80%)`);
 ok(cvCount >= D.nodes.length * 0.5, `ClinVar present for ≥50% of nodes (${cvCount}/${D.nodes.length})`);
 

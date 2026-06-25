@@ -786,31 +786,29 @@
   }
 
   function litSection(n) {
-    var hubs = state.hub === 'Both' ? ['CTBP1', 'CTBP2'] : [state.hub];
     var stop = EN.STOPLIST[n.sym];
     var body = '<div class="dsec"><div class="dsec-h">Literature (co-mention) ' + gloss('literature') + '</div>' +
-      '<p class="muted" style="font-size:11px;margin:0 0 6px">Tiers are nested scopes (each includes the narrower one): in title ⊆ title+abstract ⊆ full text. Each count links to its exact Europe PMC query.</p>';
+      '<p class="muted" style="font-size:11px;margin:0 0 6px">Co-mention is hub-independent (a property of the papers), so both paralogs are shown for every gene. Tiers are nested scopes: in title ⊆ title+abstract ⊆ full text. Each count links to its exact Europe PMC query.</p>';
     if (stop) body += '<p class="muted" style="font-size:11.5px;margin:0 0 6px">' + esc(n.sym) + ' is an ambiguous / house-keeping symbol; its counts are shown but excluded from the literature score.</p>';
     var geneTerms = [n.sym].concat(n.syn || []);
-    hubs.forEach(function (h) {
-      var cm = h === 'CTBP1' ? n.comention1 : n.comention2;
-      if (!(h === 'CTBP1' ? n.s1 : n.s2)) return;
-      body += '<div style="margin-bottom:6px"><b style="font-size:12px">' + h + '</b>';
+    function tierRows(cm, qfn) {
+      return [['title', 'in title'], ['abs', 'title+abstract'], ['all', 'full text']].map(function (t) {
+        return '<div class="kv"><span class="k">' + t[1] + '</span><span class="v"><a class="linkval" target="_blank" rel="noopener" href="' + L.epmc(qfn(t[0])) + '">' + fmtN(cm[t[0]]) + ' ↗</a></span></div>';
+      }).join('');
+    }
+    // both hubs are always shown (literature, not STRING); a hub the gene does not
+    // structurally neighbour is flagged so the count reads as literature-only.
+    [['CTBP1', n.comention1, n.s1], ['CTBP2', n.comention2, n.s2]].forEach(function (row) {
+      var h = row[0], cm = row[1], neighbour = row[2];
+      body += '<div style="margin-bottom:6px"><b style="font-size:12px">' + h + '</b>' +
+        (neighbour ? '' : ' <span class="muted" style="font-size:10px">literature only; not a top-250 STRING neighbour of ' + h + '</span>');
       if (!cm) { body += ' <span class="muted" style="font-size:11.5px">co-mention not captured in this snapshot</span></div>'; return; }
-      [['title', 'in title'], ['abs', 'title+abstract'], ['all', 'full text']].forEach(function (t) {
-        var q = comentionQuery(HUB_SYN[h], geneTerms, t[0]);
-        body += '<div class="kv"><span class="k">' + t[1] + '</span><span class="v"><a class="linkval" target="_blank" rel="noopener" href="' + L.epmc(q) + '">' + fmtN(cm[t[0]]) + ' ↗</a></span></div>';
-      });
-      body += '</div>';
+      body += tierRows(cm, function (t) { return comentionQuery(HUB_SYN[h], geneTerms, t); }) + '</div>';
     });
-    // both-hub co-mention (shared-gene literature): the gene mentioned alongside BOTH paralogs
-    if (state.hub === 'Both' && n.s1 && n.s2 && n.comentionB) {
-      body += '<div style="margin-bottom:6px"><b style="font-size:12px">CTBP1 + CTBP2 (both)</b> <span class="muted" style="font-size:10.5px">papers naming the gene with both paralogs</span>';
-      [['title', 'in title'], ['abs', 'title+abstract'], ['all', 'full text']].forEach(function (t) {
-        var q = comentionQueryBoth(geneTerms, t[0]);
-        body += '<div class="kv"><span class="k">' + t[1] + '</span><span class="v"><a class="linkval" target="_blank" rel="noopener" href="' + L.epmc(q) + '">' + fmtN(n.comentionB[t[0]]) + ' ↗</a></span></div>';
-      });
-      body += '</div>';
+    // both-hub co-mention: papers naming the gene alongside BOTH paralogs
+    if (n.comentionB) {
+      body += '<div style="margin-bottom:6px"><b style="font-size:12px">CTBP1 + CTBP2 (both)</b> <span class="muted" style="font-size:10.5px">papers naming the gene with both paralogs</span>' +
+        tierRows(n.comentionB, function (t) { return comentionQueryBoth(geneTerms, t); }) + '</div>';
     }
     // papers
     if (n.refs && n.refs.length) {
@@ -922,8 +920,7 @@
     s += 'Rank in neighbourhood: ' + (n.rank1 ? 'CTBP1 #' + n.rank1 : '') + (n.rank2 ? (n.rank1 ? ', ' : '') + 'CTBP2 #' + n.rank2 : '') + '\n';
     if (hc) s += 'Connection type: ' + hc.type + '\n';     // rank + type kept; NO composite/weights or channels line
     if (n.intact) s += 'IntAct: ' + (n.intact.type || '') + (n.intact.direct ? ' (direct)' : '') + ', MI ' + n.intact.miscore + ', ' + n.intact.count + ' records (' + L.intact(sym) + ')\n';
-    var hubs = o.hubs;
-    hubs.forEach(function (h) { var cm = h === 'CTBP1' ? n.comention1 : n.comention2; if (cm) s += 'Co-mention with ' + h + ': title ' + fmtN(cm.title) + ', title+abs ' + fmtN(cm.abs) + ', full-text ' + fmtN(cm.all) + '\n'; });
+    ['CTBP1', 'CTBP2'].forEach(function (h) { var cm = h === 'CTBP1' ? n.comention1 : n.comention2; var nb = h === 'CTBP1' ? n.s1 : n.s2; if (cm) s += 'Co-mention with ' + h + (nb ? '' : ' (literature only, not a STRING neighbour)') + ': title ' + fmtN(cm.title) + ', title+abs ' + fmtN(cm.abs) + ', full-text ' + fmtN(cm.all) + '\n'; });
     if (n.comentionB) s += 'Co-mention with BOTH (CTBP1 + CTBP2): title ' + fmtN(n.comentionB.title) + ', title+abs ' + fmtN(n.comentionB.abs) + ', full-text ' + fmtN(n.comentionB.all) + '\n';
     if (o.fields.length) { s += 'Area memberships: ' + o.fields.map(function (f) { return f.label + (f.top && f.top.disease ? ' [' + f.top.disease + ' ' + fmtS(f.top.score) + ']' : (f.top && f.top.why ? ' [' + f.top.why + ']' : '')); }).join('; ') + '\n'; }
     if (n.dis) s += 'Top diseases: ' + n.dis.slice(0, 6).map(function (d) { return d.n + ' (' + fmtS(d.s) + ')'; }).join('; ') + ' (' + L.ot(n.ensembl) + ')\n';

@@ -138,13 +138,15 @@ byte**, because the app re-builds the same query strings for its in-app source l
 
 - **Co-mention is synonym-aware and tiered** across three **nested scopes**: in title ⊆ in
   title+abstract ⊆ anywhere in full text (so the counts are monotonic, title ≤ abs ≤ all).
-  Build, per hub × gene, the three Europe PMC queries and store the counts (`comention{1,2}.{title,abs,all}`)
-  and `lit{1,2}` (the full-text count). Store enough that the app can reconstruct the exact query.
-- **Both-hub co-mention for shared genes.** For every gene that neighbours **both** paralogs (a shared
-  node), also build the three tiers of `(CTBP1 group) AND (CTBP2 group) AND (gene group)` and store
-  `comentionB.{title,abs,all}` + `litB`. This is the literature analog of the "shared" attribution
-  (papers naming the gene with both paralogs); compute it **only** for shared genes. Use the same lncRNA
-  exclusions and the same byte-identical builder as the per-hub queries.
+  **Co-mention is HUB-INDEPENDENT** (co-occurrence in papers, not the STRING graph), so build it for
+  **every** gene against **both** hubs (not only the hub it neighbours): store
+  `comention{1,2}.{title,abs,all}` and `lit{1,2}`. A gene can be discussed with a paralog it is not a
+  top-250 STRING partner of, and that count is real, informative data (even when 0). Store enough that
+  the app can reconstruct the exact query.
+- **Both-hub co-mention.** For **every** gene also build the three tiers of `(CTBP1 group) AND (CTBP2
+  group) AND (gene group)` and store `comentionB.{title,abs,all}` + `litB` (papers naming the gene with
+  both paralogs, the literature analog of "shared"). Same lncRNA exclusions and the same byte-identical
+  builder as the per-hub queries.
 - **Exclude the CTBP1 lncRNA loci** from every co-mention query: append
   `NOT "CTBP1-AS2" NOT "CTBP1-DT" NOT "CTBP1-AS1"`. Do **not** exclude `"CTBP1-AS"` — "AS" is a stopword
   that nukes the result set.
@@ -198,9 +200,11 @@ well-formed, so the data build can be verified before the app exists:
 
 - schema shape: `hubs.CTBP1` + `hubs.CTBP2` present; `hubEdge.s.c` numeric; `nodes`, `edges`, `meta` present;
 - every node has a well-formed Ensembl (`/^ENSG\d+$/`) + Entrez (`/^\d+$/`);
-- `hubs` is non-empty and **exactly** matches which of `s1`/`s2` are non-null; per-hub `rank`/`lit`/`comention`
-  are present iff that hub's score is, and absent otherwise;
-- co-mention tiers monotonic per node (`title ≤ abs ≤ all`), both hubs;
+- `hubs` is non-empty and **exactly** matches which of `s1`/`s2` are non-null; per-hub `rank` (and the
+  STRING score) are present iff that hub's score is. Co-mention (`comention{1,2}`, `comentionB`, `lit{1,2}`,
+  `litB`) is **hub-independent literature**, so it is present for **every** node (both hubs + both
+  together), regardless of which hub it neighbours; assert coverage + monotonicity, not "iff score";
+- co-mention tiers monotonic per node (`title ≤ abs ≤ all`) for both hubs and the both-hub set;
 - ClinVar present and `plp ≤ total` (nodes and both hubs); no Reactome **umbrella** terms in `pathways`;
   ambiguous-homograph aliases dropped from `syn`;
 - `meta.neighborhood.union == nodes.length` and `shared + CTBP1-only + CTBP2-only == union`;

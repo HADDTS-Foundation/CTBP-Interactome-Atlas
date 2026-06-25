@@ -467,10 +467,12 @@ def assemble(work):
                 node["hubs"] = hubs
                 continue
             v = g.get(f, None)
-            # keep per-hub fields aligned with which hub the node actually touches
-            if f in ("rank1", "s1", "lit1", "comention1") and "CTBP1" not in hubs:
+            # Only rank + STRING score are structural (present iff the node neighbours
+            # that hub). Co-mention / lit / comentionB are hub-INDEPENDENT literature
+            # and are kept for every node, regardless of which hub it neighbours.
+            if f in ("rank1", "s1") and "CTBP1" not in hubs:
                 v = None
-            if f in ("rank2", "s2", "lit2", "comention2") and "CTBP2" not in hubs:
+            if f in ("rank2", "s2") and "CTBP2" not in hubs:
                 v = None
             if v is not None:
                 node[f] = v

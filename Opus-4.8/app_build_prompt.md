@@ -238,12 +238,15 @@ attribution**.
     rank1, rank2,                 // rank within each hub's neighbourhood (null if not that hub's neighbour)
     s1:{ c,e,d,t,a,p,n,f }|null,  // STRING channels to CTBP1 (null if not a CTBP1 neighbour)
     s2:{ c,e,d,t,a,p,n,f }|null,  // STRING channels to CTBP2 (null if not a CTBP2 neighbour)
-    lit1, lit2,                   // co-mention count with each hub (synonym-aware, §8)
+    // Co-mention is HUB-INDEPENDENT literature (a property of the papers, NOT the STRING
+    // graph), so it is computed and present for EVERY gene against BOTH hubs and both
+    // together, regardless of which hub(s) the gene STRING-neighbours. (Only rank/s are
+    // structural; see below.) A gene can be discussed with a paralog it does not neighbour.
+    lit1, lit2,                   // co-mention count with each hub = comention{1,2}.all (synonym-aware, §8)
     comention1:{title,abs,all}, comention2:{title,abs,all},  // per-hub co-mention, NESTED scopes:
                                   //   title ⊆ title+abstract ⊆ full text (so title ≤ abs ≤ all).
-    comentionB:{title,abs,all}|absent, litB,  // BOTH-hub co-mention (gene named with CTBP1 AND CTBP2
-                                  //   together), same nested tiers. Present ONLY for shared nodes
-                                  //   (s1 and s2 both non-null); litB = comentionB.all.
+    comentionB:{title,abs,all}, litB,  // BOTH-hub co-mention (gene named with CTBP1 AND CTBP2
+                                  //   together), same nested tiers. litB = comentionB.all.
     // ── hub-independent per-gene biology (identical whichever hub it connects to) ──
     dz, tract:[…], areas:{ "<EFO therapeutic area>": score, … }, dis:[{n,s},…],
     func, funcRefs:[…], refs:[…], syn:[…],
@@ -261,14 +264,18 @@ attribution**.
 STRING channel keys (inside `s1` / `s2`): `c`=combined, `e`=experiments, `d`=databases,
 `t`=text-mining, `a`=co-expression, `p`=fusion, `n`=neighborhood, `f`=co-occurrence. A node carries
 `s1` **and/or** `s2`; its `hubs` array is exactly the set of hubs for which the score is non-null
-(this is what drives the **shared / CTBP1-only / CTBP2-only** attribution in §1A). Each node's
-hub-relative values take per-hub `…1` / `…2` forms (`s1`/`s2`, `lit1`/`lit2`, `rank1`/`rank2`,
-`comention1`/`comention2`). A score may carry the full channel set or, where only STRING's combined
-confidence is on record for that hub–partner edge, just `c` (the other channels null); the engine
-reads whatever channels are present (`num()` treats a missing channel as 0) and the UI marks a
-combined-only edge as such rather than inferring values. Likewise `lit`/`comention` for a hub may be
-`null` when that hub's co-mention was not captured — the connection then reflects the channels and
-network context that *are* present, and the dossier says so.
+(this is what drives the **shared / CTBP1-only / CTBP2-only** attribution in §1A). **Two kinds of
+per-hub field, and they behave differently:** `s1`/`s2` and `rank1`/`rank2` are **structural** (STRING
+neighbourhood) and are present **iff** the node neighbours that hub. `comention1`/`comention2`,
+`lit1`/`lit2` and `comentionB`/`litB` are **hub-independent literature** (co-occurrence in papers, which
+has nothing to do with the STRING top-250) and are therefore present for **every** node, both hubs,
+whether or not it neighbours them. So a `CTBP1-only` gene still carries its `CTBP2` (and both-hub)
+co-mention, and the dossier shows all of it (flagging the non-neighboured hub as "literature only");
+hiding it would be inaccurate, since the gene genuinely appears with that paralog in the literature. A
+STRING score may carry the full channel set or, where only the combined confidence is on record, just
+`c` (other channels null); the engine reads whatever channels are present (`num()` treats a missing
+channel as 0) and the UI marks a combined-only edge as such. A co-mention tier may still be `null` only
+if that query genuinely failed to fetch; the dossier then says so.
 
 ---
 
@@ -625,14 +632,15 @@ via the header **ⓘ Sources** toggle (collapsed by default; see the Insight-bar
   **exact** Europe PMC query that produced it (the in-app and pipeline query builders must be
   byte-identical so counts reproduce). State this nesting in the UI (a one-line note and the glossary)
   so a reader is not surprised that "in title" is small while "full text" is large.
-- **Per-hub vs both-hub co-mention.** Each node carries `comention1` (gene × CTBP1) and `comention2`
-  (gene × CTBP2). A **shared** node (it neighbours *both* paralogs) **also** carries `comentionB`
-  (gene × CTBP1 × CTBP2, the same three nested tiers): the literature analog of the "shared"
-  attribution, i.e. papers that name the gene alongside **both** paralogs. The dossier's Literature
-  section shows the per-hub blocks and, for a shared gene in the `Both` view, a third
-  **"CTBP1 + CTBP2 (both)"** block. The both-hub query is `(CTBP1 group) AND (CTBP2 group) AND
-  (gene group)` with the same lncRNA exclusions; build it identically in the pipeline and the app.
-  It is computed (and shown) only for shared genes, where it is meaningful.
+- **Per-hub vs both-hub co-mention (all hub-independent).** Every node carries `comention1` (gene ×
+  CTBP1), `comention2` (gene × CTBP2) **and** `comentionB` (gene × CTBP1 × CTBP2, the same nested
+  tiers), because co-mention is a property of the literature, not the STRING graph. The dossier's
+  Literature section therefore shows **all three** blocks for **every** gene, not only the hubs it
+  neighbours: a hub the gene does **not** STRING-neighbour is flagged "literature only; not a top-250
+  STRING neighbour" so the count reads correctly, but it is still shown (a 0 or small count is itself
+  information, and hiding it contradicts the Network view, which shows the gene reaching that hub via a
+  mediated route). The both-hub query is `(CTBP1 group) AND (CTBP2 group) AND (gene group)` with the
+  same lncRNA exclusions; build it identically in the pipeline and the app.
 - **Exclude the CTBP1 lncRNA loci** from every co-mention query: append
   `NOT "CTBP1-AS2" NOT "CTBP1-DT" NOT "CTBP1-AS1"`. Do **not** exclude `"CTBP1-AS"` — "AS" is a
   stopword that nukes the result set.
@@ -671,10 +679,13 @@ Run the **exact** `engine.js` against `app-data.js` and assert **generic invaria
 - Structural: `analyse(W, hubSel)` returns all in-scope nodes sorted by composite; every node has a
   valid connection type; Core/Physical never from DB channel alone.
 - **Dual-hub invariants:** every node's `hubs` set is **non-empty** and **exactly matches** which of
-  `s1`/`s2` are non-null (no node claims a hub it has no score for, and vice-versa); `rank1`/`lit1`/
-  `comention1` are present iff `s1` is, same for `…2`/`s2`. Every node is a **direct** STRING neighbour
-  of **at least one** hub (its own hub(s)); a node need **not** be a direct neighbour of a hub it is not
-  attributed to. `routes(hub, to)` returns a **direct** edge when one exists and only otherwise a
+  `s1`/`s2` are non-null (no node claims a hub it has no score for, and vice-versa); `rank1` is present
+  **iff** `s1` is, same for `rank2`/`s2` (rank and score are structural). Co-mention is **hub-independent
+  literature**, so `comention1`/`comention2`/`comentionB` (and `lit1`/`lit2`/`litB`) are **not** tied to
+  `s1`/`s2`: assert instead that they are present for **(nearly) every** node and that their tiers are
+  monotonic; do **not** assert they are absent for a non-neighboured hub. Every node is a **direct**
+  STRING neighbour of **at least one** hub (its own hub(s)); a node need **not** be a direct neighbour of
+  a hub it is not attributed to. `routes(hub, to)` returns a **direct** edge when one exists and only otherwise a
   mediated route (depth ≤ 3) whose every hop is a real `edges` entry. `meta.neighborhood.union ==
   nodes.length` and `shared + CTBP1-only + CTBP2-only == union`.
 - Data integrity: no unresolved ID stubs (every node has Ensembl + Entrez); ClinVar present &

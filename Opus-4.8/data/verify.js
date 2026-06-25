@@ -139,10 +139,10 @@ D.nodes.forEach((n) => {
   ok(n.hubs && n.hubs.length > 0, `${n.sym}: hubs non-empty`);
   ok((n.hubs.indexOf('CTBP1') >= 0) === has(n, 's1'), `${n.sym}: CTBP1 ∈ hubs iff s1`);
   ok((n.hubs.indexOf('CTBP2') >= 0) === has(n, 's2'), `${n.sym}: CTBP2 ∈ hubs iff s2`);
+  // rank + STRING score are structural (present iff the node neighbours that hub);
+  // co-mention/lit are hub-independent literature and may exist for either hub.
   ok(has(n, 'rank1') === has(n, 's1'), `${n.sym}: rank1 present iff s1`);
   ok(has(n, 'rank2') === has(n, 's2'), `${n.sym}: rank2 present iff s2`);
-  if (!has(n, 's1')) ok(!has(n, 'lit1') && !has(n, 'comention1'), `${n.sym}: no CTBP1 fields without s1`);
-  if (!has(n, 's2')) ok(!has(n, 'lit2') && !has(n, 'comention2'), `${n.sym}: no CTBP2 fields without s2`);
   ok(has(n, 's1') || has(n, 's2'), `${n.sym}: a direct neighbour of at least one hub`);
 });
 // routes: direct edge when one exists, else mediated (depth ≤ 3) over real edges
@@ -180,7 +180,6 @@ D.nodes.forEach((n) => {
   if (!/^ENSG\d+$/.test(n.ensembl || '') || !/^\d+$/.test(String(n.entrez || ''))) idBad++;
   if (n.clinvar) { cvCount++; if (isNum(n.clinvar.plp) && isNum(n.clinvar.total) && n.clinvar.plp > n.clinvar.total) cvBad++; }
   [n.comention1, n.comention2, n.comentionB].forEach((cm) => { if (cm && [cm.title, cm.abs, cm.all].every(isNum) && !(cm.title <= cm.abs && cm.abs <= cm.all)) monoBad++; });
-  if (n.comentionB) ok(!!n.s1 && !!n.s2, `${n.sym}: comentionB only on a shared node`);
   (n.pathways || []).forEach((p) => { if (UMBRELLAS.has(String(p).toLowerCase())) umb++; });
   (n.syn || []).forEach((s) => { if (BLOCK.has(String(s).toUpperCase())) homo++; });
   (n.refs || []).forEach((r) => { if (!/^\d+$/.test(String(r.pmid || ''))) pmidBad++; });

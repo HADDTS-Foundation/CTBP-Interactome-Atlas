@@ -134,17 +134,17 @@ def run():
     for sym, g in genes.items():
         done += 1
         gene_terms = [sym] + (g.get("syn") or [])
+        # Co-mention is hub-INDEPENDENT literature (a property of the papers, not the
+        # STRING graph). Compute it for EVERY gene against BOTH hubs and both together,
+        # not only the hubs it STRING-neighbours; a gene can be discussed with a paralog
+        # it is not a top-250 STRING partner of.
         for hi, H in enumerate(C.HUBS, start=1):
-            if g.get("s%d" % hi) is None:
-                continue
             tiers = comention_tiers(C.HUB_SYNONYMS[H], gene_terms)
             g["comention%d" % hi] = tiers
             g["lit%d" % hi] = tiers.get("all")
-        # both-hub co-mention for SHARED genes (the gene appears with both paralogs)
-        if g.get("s1") is not None and g.get("s2") is not None:
-            b = both_tiers(gene_terms)
-            g["comentionB"] = b
-            g["litB"] = b.get("all")
+        b = both_tiers(gene_terms)
+        g["comentionB"] = b
+        g["litB"] = b.get("all")
         if done % 30 == 0:
             C.log("  co-mention %d/%d" % (done, len(genes)))
             C.save_work(work)
