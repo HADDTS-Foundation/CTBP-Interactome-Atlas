@@ -62,6 +62,29 @@ At the **top-left**, above every other control, a **hub selector** chooses the s
 from the (union) interactome. With nothing chosen, the views show the whole neighbourhood. Choosing
 `G` enters **focus mode**, where the views answer **"how does the selected hub(s) connect to `G`?"**:
 
+> **Focus applies the moment a valid gene is entered (input-driven, not blur-gated).** As soon as the
+> typed text matches a partner gene (or one is picked from the datalist), the app enters focus mode and
+> the focus-dependent views update **immediately**: the Network subgraph (re)draws, the dossier swaps to
+> `G`, and the constellation highlights it. Bind this to the field's **`input`** event (which fires on
+> every keystroke and on a datalist pick), **not** only to `change` (which a text input fires just on
+> blur or Enter, leaving a found gene unreflected while the user is still in the field, a real usability
+> bug). Keep `change` only as a redundant fallback. While the field is being edited, do **not** rewrite
+> its value on re-render (guard on `document.activeElement`), so the cursor never jumps. Clearing the box
+> (or pressing Escape) exits focus and restores the whole-neighbourhood view.
+
+**Click model (single inspects, double traces).** A gene can also be reached **without** the selector:
+**single-click** any gene (a Constellation/Network node, or a Table / Findings / Discoveries row) opens
+its **dossier**; **double-click** the same gene **enters focus mode** (it becomes the focus gene and the
+view jumps to the Network route subgraph). Double-click is the fast "trace this" shortcut and reuses the
+same focus path as the selector; single-click stays non-destructive (dossier only). Wire it on every
+gene element (both canvases and every row/card list), guarding against clicks on inner links.
+**Keep the dossier-open gene and the focus gene as separate state** (e.g. `selected` vs `focus`):
+opening a dossier (single-click) must **not** set the focus gene, or a real double-click, whose leading
+click opens the dossier first, would clear the focus it is meant to set (the constellation highlight may
+key off either). **Exiting focus must be obvious from inside the views:** give the Network view its own
+visible **"Clear focus"** control (not only the focus box's `✕` and the drawer's `⌂ Hub`), and let
+**double-clicking the already-focused gene toggle focus off**.
+
 - **Direct** connection: `hub → G` (a direct STRING edge), shown whenever it exists, with its score.
 - **Indirect** connection: when a hub does **not** directly neighbour `G`, surface the **mediated
   route(s)** `hub → M → G` — and, if no single intermediary exists, `hub → M → N → G` (**depth ≤ 3**) —
@@ -83,7 +106,9 @@ between them. It is a force / graph layout; nodes are coloured by hub-attributio
 shared) and `G` is highlighted, and every bridging edge is labelled with its STRING score. Outside
 focus mode with `Both` selected, the Network view can also render the **two-hub overview** (both
 centres, the shared set between them, the two isolated sets to the sides) as an honest alternative to
-the Constellation.
+the Constellation. While focused, the view shows a visible **"Clear focus"** control that returns it to
+this overview (see the click-model note in §1A.2); a node's hit target should be a touch larger than its
+drawn radius so small intermediaries are easy to click.
 
 ### 1A.4 Hub-independent biology
 
@@ -214,7 +239,11 @@ attribution**.
     s1:{ c,e,d,t,a,p,n,f }|null,  // STRING channels to CTBP1 (null if not a CTBP1 neighbour)
     s2:{ c,e,d,t,a,p,n,f }|null,  // STRING channels to CTBP2 (null if not a CTBP2 neighbour)
     lit1, lit2,                   // co-mention count with each hub (synonym-aware, §8)
-    comention1:{title,abs,all}, comention2:{title,abs,all},
+    comention1:{title,abs,all}, comention2:{title,abs,all},  // per-hub co-mention, NESTED scopes:
+                                  //   title ⊆ title+abstract ⊆ full text (so title ≤ abs ≤ all).
+    comentionB:{title,abs,all}|absent, litB,  // BOTH-hub co-mention (gene named with CTBP1 AND CTBP2
+                                  //   together), same nested tiers. Present ONLY for shared nodes
+                                  //   (s1 and s2 both non-null); litB = comentionB.all.
     // ── hub-independent per-gene biology (identical whichever hub it connects to) ──
     dz, tract:[…], areas:{ "<EFO therapeutic area>": score, … }, dis:[{n,s},…],
     func, funcRefs:[…], refs:[…], syn:[…],
@@ -414,8 +443,8 @@ via the header **ⓘ Sources** toggle (collapsed by default; see the Insight-bar
   fill) off the active theme. The few elements with **hardcoded translucent-white backgrounds** — the
   constellation **legend** (bottom-left) and the **hint** card (top-right "click a node …") — are
   overridden to a dark translucent card in dark mode (`rgba(16,24,40,…)`) so they don't glow bright.
-  (The hint text reads "click a node to open its dossier · gold halo = aging-linked" — it must **not**
-  mention "drag weights", since the weight sliders were removed.) Unlike the desktop-only `.iconbtn`s
+  (The hint text reads "click a node for its dossier · double-click to trace its route · gold halo =
+  aging-linked" — it must **not** mention "drag weights", since the weight sliders were removed.) Unlike the desktop-only `.iconbtn`s
   (hidden ≥1024px), the theme toggle is
   its own always-visible control (shown in both the mobile and desktop layouts). The build-date,
   Export, and "How was this built?" actions are **not** in the
@@ -483,7 +512,9 @@ via the header **ⓘ Sources** toggle (collapsed by default; see the Insight-bar
      Pick a gene `G` to enter **focus mode** (how the selected hub(s) reach `G`, directly or through
      one or two intermediary genes); clear it to return to the whole neighbourhood. This **subsumes the
      old "Trace connection"** control: tracing a gene is now this selector, and it can present mediated
-     routes, not only a direct edge.
+     routes, not only a direct edge. **It reacts on `input`** (every keystroke and datalist pick), so
+     focus engages the instant the typed symbol matches a gene and the views update immediately; it must
+     **not** wait for a blur/Enter `change` event (see the focus-immediacy note in §1A.2).
   3. **Fields (lenses):** one flat list of all ten fields (five sector fields, then aging / immunity /
      cardiovascular / hematologic / eye). Click a field to focus it (every view filters to just that
      field; click the focused lens again to reset; the Findings area-chips mirror this).
@@ -586,9 +617,22 @@ via the header **ⓘ Sources** toggle (collapsed by default; see the Insight-bar
 
 ## 8. Provenance & literature rules (exact)
 
-- **Co-mention** is synonym-aware and tiered: in title / in title+abstract / anywhere in full
-  text. Each count links to the **exact** Europe PMC query that produced it (the in-app query
-  builder and the pipeline's query builder must be byte-identical so counts reproduce).
+- **Co-mention** is synonym-aware and tiered across three **nested scopes**, broadest last:
+  **in title** (both terms in the title) ⊆ **title+abstract** (in the title *or* abstract, so it
+  includes the title hits) ⊆ **full text** (anywhere in the full text). Because the scopes nest, the
+  counts are monotonic (title ≤ title+abstract ≤ full text); the middle tier is labelled
+  "title+abstract", not "in abstract", precisely because it includes the title. Each count links to the
+  **exact** Europe PMC query that produced it (the in-app and pipeline query builders must be
+  byte-identical so counts reproduce). State this nesting in the UI (a one-line note and the glossary)
+  so a reader is not surprised that "in title" is small while "full text" is large.
+- **Per-hub vs both-hub co-mention.** Each node carries `comention1` (gene × CTBP1) and `comention2`
+  (gene × CTBP2). A **shared** node (it neighbours *both* paralogs) **also** carries `comentionB`
+  (gene × CTBP1 × CTBP2, the same three nested tiers): the literature analog of the "shared"
+  attribution, i.e. papers that name the gene alongside **both** paralogs. The dossier's Literature
+  section shows the per-hub blocks and, for a shared gene in the `Both` view, a third
+  **"CTBP1 + CTBP2 (both)"** block. The both-hub query is `(CTBP1 group) AND (CTBP2 group) AND
+  (gene group)` with the same lncRNA exclusions; build it identically in the pipeline and the app.
+  It is computed (and shown) only for shared genes, where it is meaningful.
 - **Exclude the CTBP1 lncRNA loci** from every co-mention query: append
   `NOT "CTBP1-AS2" NOT "CTBP1-DT" NOT "CTBP1-AS1"`. Do **not** exclude `"CTBP1-AS"` — "AS" is a
   stopword that nukes the result set.
@@ -694,7 +738,11 @@ mark, ~22 px, after a hairline divider) — never the logo first. The lockup is 
 `logo-vert-colored.svg` (navy `#002255` wordmark + cyan `#03e2f2` icon) for **light** mode and
 `logo-vert-white.svg` (white `#ffffff` wordmark + the same cyan icon) for **dark** mode — toggled by CSS
 (`.logo-dark` hidden by default; `[data-theme="dark"]` hides `.logo-light` and shows `.logo-dark`). The
-two SVGs are pixel-identical except for the wordmark fill so the swap is seamless. The folder also ships
+two SVGs are pixel-identical except for the wordmark fill so the swap is seamless. **Put the show/hide
+`display` on the `.logo-light` / `.logo-dark` classes themselves; do not set `display` on a shared
+`.by img` rule** (its `class + element` specificity, e.g. `0,1,1`, outranks `.logo-dark{display:none}`
+at `0,1,0` and leaks the white-wordmark logo into light mode, where it is invisible on white except for
+its cyan icon). Size the imgs on `.by img`, but switch visibility on the theme classes only. The folder also ships
 the other marks (`logo-horiz-*`, `HADDTS Foundation*.svg`, white and white-mono variants) for any
 dark-surface use; only the vertical pair is wired into the header.
 

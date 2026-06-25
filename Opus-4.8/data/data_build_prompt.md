@@ -136,9 +136,15 @@ These govern how counts and references are built. They must match `app_build_pro
 byte**, because the app re-builds the same query strings for its in-app source links — identical query
 ⇒ identical count.
 
-- **Co-mention is synonym-aware and tiered:** in title / in title+abstract / anywhere in full text.
+- **Co-mention is synonym-aware and tiered** across three **nested scopes**: in title ⊆ in
+  title+abstract ⊆ anywhere in full text (so the counts are monotonic, title ≤ abs ≤ all).
   Build, per hub × gene, the three Europe PMC queries and store the counts (`comention{1,2}.{title,abs,all}`)
   and `lit{1,2}` (the full-text count). Store enough that the app can reconstruct the exact query.
+- **Both-hub co-mention for shared genes.** For every gene that neighbours **both** paralogs (a shared
+  node), also build the three tiers of `(CTBP1 group) AND (CTBP2 group) AND (gene group)` and store
+  `comentionB.{title,abs,all}` + `litB`. This is the literature analog of the "shared" attribution
+  (papers naming the gene with both paralogs); compute it **only** for shared genes. Use the same lncRNA
+  exclusions and the same byte-identical builder as the per-hub queries.
 - **Exclude the CTBP1 lncRNA loci** from every co-mention query: append
   `NOT "CTBP1-AS2" NOT "CTBP1-DT" NOT "CTBP1-AS1"`. Do **not** exclude `"CTBP1-AS"` — "AS" is a stopword
   that nukes the result set.
