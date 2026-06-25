@@ -1,0 +1,65 @@
+# Publish one model-version folder of the CTBP Interactome Atlas to GitHub Pages.
+#
+# WHY this (and not "Deploy from a branch"): branch deploy only serves "/" or
+# "/docs", never a nested folder like Opus-4.8/. The "GitHub Actions" Pages source
+# lets us publish ANY folder as the site root.
+#
+# ── To switch which version is live ──────────────────────────────────────────
+#   Permanent: change APP_DIR below (e.g. Opus-4.8 -> Opus-4.9) and push to main.
+#   One-off:   Actions tab -> "Deploy CTBP Atlas to Pages" -> Run workflow ->
+#              type the folder name in the "version" box (no file edit needed).
+#
+# ── One-time setup (in the GitHub UI) ────────────────────────────────────────
+#   Settings -> Pages -> Build and deployment -> Source = "GitHub Actions".
+name: Deploy CTBP Atlas to Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Folder to publish (default: the APP_DIR in this file)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# one live deploy at a time; a newer push supersedes an in-flight one
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+env:
+  APP_DIR: Opus-4.8        # ← the published version; bump this and push to switch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Choose folder to publish
+        run: |
+          DIR="${{ github.event.inputs.version || env.APP_DIR }}"
+          if [ ! -f "$DIR/index.html" ]; then
+            echo "::error::No $DIR/index.html in the repo. Check the folder name."
+            exit 1
+          fi
+          echo "DIR=$DIR" >> "$GITHUB_ENV"
+          echo "Publishing $DIR/ as the site root."
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ env.DIR }}
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
