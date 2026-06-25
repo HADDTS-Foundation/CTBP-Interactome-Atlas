@@ -1,0 +1,49 @@
+# ── macOS ──
+.DS_Store
+.DS_Store?
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd
+.VolumeIcon.icns
+
+# ── Windows ──
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ── Linux ──
+*~
+.directory
+.Trash-*
+
+# ── Editors / IDEs ──
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+.\#*
+
+# ── Python (data pipeline) ──
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.mypy_cache/
+.pytest_cache/
+
+# ── Node (test harness) ──
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# ── Logs / temp ──
+*.log
+*.tmp
