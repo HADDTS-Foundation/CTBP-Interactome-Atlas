@@ -441,11 +441,13 @@ via the header **ⓘ Sources** toggle (collapsed by default; see the Insight-bar
   Interactome Atlas** wordmark **first** — bold dark **`CTBP`** + lighter teal **`Interactome Atlas`**,
   one typeface, two tones (the lighter weight-400 `--secondary` treatment covers the whole product
   name "Interactome Atlas") — then a **smaller** HADDTS Foundation logo as the trailing secondary
-  mark, separated by a hairline divider — never the logo first). The **whole brand lock-up is a "home"
-  control**: clicking it (or the logo) behaves exactly like the drawer's **⌂ Hub** button (`goHub()`),
-  clearing any gene/lens/focus selection and returning the drawer to the current hub selection
-  (CTBP1, CTBP2, or the paired view in `Both`). It is **not** a
-  link to `app_build_prompt.md` (the "How it was built" methods link lives in the insight strip's
+  mark, separated by a hairline divider — never the logo first). The **wordmark is a "home"
+  control**: clicking the **`CTBP Interactome Atlas` wordmark** behaves exactly like the drawer's
+  **⌂ Hub** button (`goHub()`), clearing any gene/lens/focus selection and returning the drawer to the
+  current hub selection (CTBP1, CTBP2, or the paired view in `Both`). The trailing **HADDTS Foundation
+  logo links to the foundation website** (`https://www.haddtsfoundation.org`, new tab) — it must
+  `stopPropagation()` so clicking the logo opens the site rather than also firing `goHub()`. Neither is
+  a link to `app_build_prompt.md` (the "How it was built" methods link lives in the insight strip's
   `Method →` pair). The header also carries the sources toggle, an **icon-only `ⓘ` button** (the
   "Sources" label is dropped; the `title`/`aria-label` still name it), the
   dossier (▤) icon, and, pinned at the **top-right**, a **dark-mode toggle** (☾ in light / ☀ in
