@@ -1025,6 +1025,37 @@
   function openDrawerMobile() { if (window.innerWidth < 1024) { $('drawer').classList.add('open'); $('scrim').classList.add('show'); } }
   function closeOverlays() { $('drawer').classList.remove('open'); $('left').classList.remove('open'); $('scrim').classList.remove('show'); }
 
+  // Custom gene autocomplete (replaces the native <datalist>: it ghost-opens the
+  // whole list on iOS and is unstyleable). Filtered, prefix-first, tappable.
+  function attachAutocomplete(inputEl) {
+    if (!inputEl) return;
+    var box = el('div', 'ac-list'); box.style.display = 'none';
+    inputEl.parentElement.appendChild(box);
+    function hide() { box.style.display = 'none'; }
+    inputEl.addEventListener('input', function () {
+      var v = inputEl.value.trim().toUpperCase();
+      if (!v) { hide(); return; }
+      var pre = [], sub = [];
+      for (var i = 0; i < D.nodes.length; i++) {
+        var s = D.nodes[i].sym, k = s.toUpperCase().indexOf(v);
+        if (k === 0) pre.push(s); else if (k > 0) sub.push(s);
+      }
+      var items = pre.concat(sub).slice(0, 8);
+      if (!items.length) { hide(); return; }
+      box.innerHTML = items.map(function (s) { return '<div class="ac-item" data-sym="' + esc(s) + '">' + esc(s) + '</div>'; }).join('');
+      box.style.display = 'block';
+    });
+    box.addEventListener('pointerdown', function (e) {
+      var it = e.target && e.target.closest ? e.target.closest('.ac-item') : null;
+      if (!it) return;
+      e.preventDefault();                       // keep focus; avoid the blur-hide race
+      var sym = it.getAttribute('data-sym');
+      inputEl.value = sym; hide(); inputEl.blur(); focusGene(sym);
+    });
+    inputEl.addEventListener('blur', function () { setTimeout(hide, 160); });
+    inputEl.addEventListener('keydown', function (e) { if (e.key === 'Escape') hide(); });
+  }
+
   // ── events ────────────────────────────────────────────────────────────────
   function wire() {
     // Hub controls + view nav: desktop panel and the mobile bar/bottom-nav share handlers.
@@ -1056,6 +1087,8 @@
     }
     wireFocus('focusInput', 'focusClear');
     wireFocus('mFocusInput', 'mFocusClear');
+    attachAutocomplete($('focusInput'));
+    attachAutocomplete($('mFocusInput'));
     $('netClear').addEventListener('click', function () { clearFocus(); });
     $('limitRange').addEventListener('input', function () { state.limit = +$('limitRange').value; $('limitVal').textContent = state.limit; renderActiveView(); });
     $('themeBtn').addEventListener('click', toggleTheme);

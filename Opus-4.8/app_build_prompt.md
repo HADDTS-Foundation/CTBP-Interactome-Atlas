@@ -659,9 +659,14 @@ obvious way into and out of every panel.
    brand** and the secondary HADDTS logo is **hidden** (it must never render clipped); its
    `www.haddtsfoundation.org` link relocates to the ☰ **Sources** block (point 6). Keep the icon
    buttons that remain.
-5. **Touch ergonomics.** Tap targets are **≥ 44 × 44px** (icon buttons, bottom-nav items, the ⓘ
-   glossary hit area). Glossary tooltips are tap-to-open and **dismiss on a tap anywhere else** (or a
-   second tap on the ⓘ), since touch has no hover-out.
+5. **Touch ergonomics + iOS-Safari gotchas (must handle).** Tap targets are **≥ 44 × 44px** (icon
+   buttons, bottom-nav items, the ⓘ glossary hit area). Glossary tooltips are tap-to-open and **dismiss
+   on a tap anywhere else** (or a second tap on the ⓘ), since touch has no hover-out. Three specific
+   iOS-Safari fixes are required: (a) **all inputs use ≥ 16px font** or iOS zooms the page on focus;
+   (b) the gene picker is a **custom, filtered, tappable autocomplete**, **not** a native `<datalist>`
+   (which ghost-opens the entire list and is unstyleable on iOS); (c) the layout height uses **`100dvh`**
+   (with a `100vh` fallback) plus `env(safe-area-inset-bottom)` so the **bottom nav clears Safari's
+   dynamic toolbar** instead of hiding behind it.
 6. **Provenance on mobile.** Because the desktop insight strip is hidden ≤ 1023px, the ☰ panel carries a
    **Sources & export** block: the per-hub source links, the **⧉ Export** action, the build date, the
    offline-download note, and the HADDTS Foundation + GitHub links, so provenance, export and the

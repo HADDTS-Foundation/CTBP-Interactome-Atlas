@@ -59,7 +59,7 @@ body{
   margin:0; font-family:var(--sans); color:var(--on-surface);
   background:var(--surface); font-size:14px; line-height:1.45;
   -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
-  overflow:hidden; display:flex; flex-direction:column; height:100vh;
+  overflow:hidden; display:flex; flex-direction:column; height:100vh; height:100dvh;
 }
 a{color:var(--primary); text-decoration:none}
 a:hover{text-decoration:underline}
@@ -171,6 +171,15 @@ button{font-family:inherit; cursor:pointer; color:inherit}
 #focusClear:hover{background:var(--sc-low)}
 .focus-state{margin-top:7px; font-size:11.5px; color:var(--on-surface-variant)}
 .focus-state b{color:var(--primary)}
+/* custom gene autocomplete (replaces the native <datalist>, which is janky on iOS) */
+.ac-list{position:absolute; left:0; right:0; top:100%; margin-top:3px; background:var(--surface-container-lowest);
+  border:1px solid var(--outline); border-radius:var(--radius-sm); box-shadow:var(--shadow-lg); z-index:60;
+  max-height:248px; overflow:auto; -webkit-overflow-scrolling:touch}
+.ac-item{padding:9px 11px; font-size:13.5px; font-family:var(--sans); color:var(--on-surface); cursor:pointer;
+  border-bottom:1px solid var(--outline-variant)}
+.ac-item:last-child{border-bottom:0}
+.ac-item.sel,.ac-item:hover{background:var(--sc-low)}
+@media(max-width:1023px){ .ac-item{padding:12px 12px; font-size:15px} }
 
 /* fields list (lenses) */
 .field-row{display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:var(--radius-sm);
@@ -378,8 +387,8 @@ details.collapse .dc-body{padding:0 11px 11px}
   #mHubSel{flex:0 0 auto; width:auto}
   #mHubSel button{padding:9px 9px; font-size:12px}
   .mbar-focus{flex:1 1 auto; position:relative}
-  #mFocusInput{width:100%; padding:9px 30px 9px 10px; border:1px solid var(--outline); border-radius:var(--radius-sm);
-    font-family:var(--sans); font-size:13px; background:var(--surface-container-lowest); color:var(--on-surface)}
+  #mFocusInput{width:100%; padding:10px 30px 10px 10px; border:1px solid var(--outline); border-radius:var(--radius-sm);
+    font-family:var(--sans); font-size:16px; background:var(--surface-container-lowest); color:var(--on-surface)}
   #mFocusInput:focus{outline:none; border-color:var(--primary-bright)}
   #mFocusClear{position:absolute; right:6px; top:50%; transform:translateY(-50%); border:0; background:transparent;
     color:var(--on-surface-variant); font-size:17px; width:26px; height:26px; border-radius:5px; display:none}
@@ -461,7 +470,7 @@ details.collapse .dc-body{padding:0 11px 11px}
     <button data-hub="Both" class="active">Both</button>
   </div>
   <div class="focus-wrap mbar-focus">
-    <input id="mFocusInput" list="geneList" placeholder="Trace a gene…" autocomplete="off">
+    <input id="mFocusInput" placeholder="Trace a gene…" autocomplete="off" autocapitalize="off" autocorrect="off">
     <button id="mFocusClear" title="Clear focus" aria-label="Clear focus">✕</button>
   </div>
 </div>
@@ -498,7 +507,7 @@ details.collapse .dc-body{padding:0 11px 11px}
     <div class="sec desktop-only-sec">
       <div class="sec-h">Focus gene <span class="gloss" data-gloss="focus">i</span></div>
       <div class="focus-wrap">
-        <input id="focusInput" list="geneList" placeholder="Trace a partner gene…" autocomplete="off">
+        <input id="focusInput" placeholder="Trace a partner gene…" autocomplete="off" autocapitalize="off" autocorrect="off">
         <button id="focusClear" title="Clear focus" aria-label="Clear focus">✕</button>
         <datalist id="geneList"></datalist>
       </div>
