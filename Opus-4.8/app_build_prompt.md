@@ -632,6 +632,44 @@ via the header **ⓘ Sources** toggle (collapsed by default; see the Insight-bar
   below near the top, clamp to the viewport, ~70 ms fade, also show on keyboard focus.
 - **Intro** — a brief boot animation; `?noboot` skips it.
 
+### 7A. Mobile layout (≤ 1023px) — precise behaviour
+
+Desktop (≥ 1024px) is the **canonical** design and must stay **byte-for-byte unchanged** by everything
+below; every mobile rule is gated behind `@media (max-width:1023px)` (or a JS `isMobile` check) and only
+*adds* mobile-only DOM/CSS. The goal: the most-used controls are always in reach, and there is one
+obvious way into and out of every panel.
+
+1. **Primary controls stay visible (no digging).** The **Hub** segmented control (`CTBP1 / CTBP2 /
+   Both`) and the **Focus-gene** input sit in a **persistent control bar pinned directly under the
+   header**, always on screen, **never** hidden behind the ☰ panel. This bar is a mobile **mirror** of
+   the desktop left-panel controls: it drives the *same* state and the *same* handlers (do not fork the
+   logic) and is kept in sync (active hub, focus value, roll-up counts). The ☰ panel on mobile then
+   holds only the **secondary** controls: the **Fields** lenses, the **Display limit**, and a
+   **Sources & export** block (point 6).
+2. **Bottom navigation for the five views.** Replace the top tab strip (which overflows and hides
+   "Network") with a **fixed bottom navigation bar** spanning the width, one thumb-sized item per view
+   (Constellation · Table · Findings · Discoveries · Network), the active view marked. Hide the top tab
+   strip on mobile and inset the centre view area so nothing is hidden behind the bottom bar.
+3. **One clear way in and out of each panel.** Both overlays carry an explicit **✕ close** (not only a
+   scrim tap). The **right dossier becomes a bottom sheet**: it slides up from the bottom, full width,
+   ~88vh tall, rounded top with a grab-handle + ✕, dismissed by the ✕, a downward swipe, or a scrim tap.
+   The ☰ controls panel slides in from the left with its own ✕. A scrim dims the rest and also closes on
+   tap.
+4. **Header fits, logo never clips.** The narrow bar can't hold both, so on mobile the **wordmark is the
+   brand** and the secondary HADDTS logo is **hidden** (it must never render clipped); its
+   `www.haddtsfoundation.org` link relocates to the ☰ **Sources** block (point 6). Keep the icon
+   buttons that remain.
+5. **Touch ergonomics.** Tap targets are **≥ 44 × 44px** (icon buttons, bottom-nav items, the ⓘ
+   glossary hit area). Glossary tooltips are tap-to-open and **dismiss on a tap anywhere else** (or a
+   second tap on the ⓘ), since touch has no hover-out.
+6. **Provenance on mobile.** Because the desktop insight strip is hidden ≤ 1023px, the ☰ panel carries a
+   **Sources & export** block: the per-hub source links, the **⧉ Export** action, the build date, the
+   offline-download note, and the HADDTS Foundation + GitHub links, so provenance, export and the
+   foundation link are all reachable on a phone.
+7. **Tables.** The evidence table scrolls horizontally inside its own container with an obvious cue (the
+   dual-hub per-hub columns are reachable by swipe); the gene dossier stays the full-detail view. On
+   mobile prefer a lower default **Display limit** and larger node hit areas on the canvases so taps land.
+
 ---
 
 ## 8. Provenance & literature rules (exact)

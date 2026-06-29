@@ -194,10 +194,24 @@
     $('captionSrc').innerHTML = 'Sources: ' + srcs + '.';
   }
 
+  // Sources + export inside the mobile controls panel (the insight strip is
+  // desktop-only, so this is how a phone reaches provenance/export, §7A.6).
+  function renderMobileSources() {
+    var box = $('mobileSources'); if (!box) return;
+    var hubs = state.hub === 'Both' ? ['CTBP1', 'CTBP2'] : [state.hub];
+    var html = '';
+    hubs.forEach(function (h) { html += '<div class="hubgroup" style="margin:0 0 6px"><span class="glabel">' + h + '</span>' + dbPills(h) + '</div>'; });
+    html += '<button class="export-btn" id="mExportBtn" style="margin:8px 0"><span class="cp">⧉</span> Export AI Context</button>';
+    html += '<div class="sec-note">Built ' + esc(D.meta.date) + ' · ' + D.meta.neighborhood.union + ' genes · ' + fmtN(D.meta.edgeCount) + ' edges</div>';
+    html += '<p class="muted" style="font-size:11px;margin-top:8px">Offline-first: open <b>index.html</b> directly to run with no connection. <a href="https://www.haddtsfoundation.org" target="_blank" rel="noopener">HADDTS Foundation ↗</a> · <a href="https://github.com/HADDTS-Foundation/CTBP-Interactome-Atlas" target="_blank" rel="noopener">GitHub ↗</a>.</p>';
+    box.innerHTML = html;
+    var mexp = $('mExportBtn'); if (mexp) mexp.addEventListener('click', function () { copyText(aiForAll(), mexp); });
+  }
+
   // ── controls ──────────────────────────────────────────────────────────────
   function renderControls() {
-    // hub segmented active
-    document.querySelectorAll('#hubSel button').forEach(function (b) {
+    // hub segmented active (desktop panel + mobile bar stay in sync)
+    document.querySelectorAll('#hubSel button, #mHubSel button').forEach(function (b) {
       b.classList.toggle('active', b.getAttribute('data-hub') === state.hub);
     });
     // hub roll-up
@@ -218,12 +232,18 @@
       var all = D.nodes.map(function (n) { return '<option value="' + esc(n.sym) + '">'; }).join('');
       dl.innerHTML = all;
     }
+    // focus inputs (desktop panel + mobile bar) kept in sync; don't overwrite a box
+    // while the user is typing in it (would jump the cursor)
+    ['focusInput', 'mFocusInput'].forEach(function (id) {
+      var inp = $(id); if (!inp) return;
+      if (document.activeElement !== inp) inp.value = state.focus || '';
+    });
     $('focusClear').style.display = state.focus ? 'block' : 'none';
-    // don't overwrite the box while the user is typing in it (would jump the cursor)
-    if (document.activeElement !== $('focusInput')) $('focusInput').value = state.focus || '';
+    if ($('mFocusClear')) $('mFocusClear').style.display = state.focus ? 'block' : 'none';
     $('focusState').innerHTML = state.focus
       ? 'Focus: <b>' + esc(state.focus) + '</b>. Network view shows how the hub(s) reach it.'
       : 'Showing the whole neighbourhood.';
+    renderMobileSources();
 
     // fields list
     var summary = EN.themeSummary(D, state.hub);
@@ -269,7 +289,7 @@
   }
   function setView(v) {
     state.view = v;
-    document.querySelectorAll('#viewTabs .tab').forEach(function (t) { t.classList.toggle('active', t.getAttribute('data-view') === v); });
+    document.querySelectorAll('#viewTabs .tab, #mobileNav button').forEach(function (t) { t.classList.toggle('active', t.getAttribute('data-view') === v); });
     document.querySelectorAll('.view').forEach(function (el2) { el2.classList.toggle('active', el2.getAttribute('data-view') === v); });
     renderActiveView();
   }
@@ -1007,31 +1027,36 @@
 
   // ── events ────────────────────────────────────────────────────────────────
   function wire() {
-    document.querySelectorAll('#hubSel button').forEach(function (b) {
+    // Hub controls + view nav: desktop panel and the mobile bar/bottom-nav share handlers.
+    document.querySelectorAll('#hubSel button, #mHubSel button').forEach(function (b) {
       b.addEventListener('click', function () { state.hub = b.getAttribute('data-hub'); clearNodeCache(); renderAll(); });
     });
-    document.querySelectorAll('#viewTabs .tab').forEach(function (t) { t.addEventListener('click', function () { setView(t.getAttribute('data-view')); }); });
-    function matchedSym() {
-      var v = $('focusInput').value.trim().toUpperCase();
+    document.querySelectorAll('#viewTabs .tab, #mobileNav button').forEach(function (t) {
+      t.addEventListener('click', function () { setView(t.getAttribute('data-view')); closeOverlays(); });
+    });
+    function matchedSym(val) {
+      var v = (val || '').trim().toUpperCase();
       if (!v) return null;
       var m = D.nodes.filter(function (n) { return n.sym.toUpperCase() === v; })[0];
       return m ? m.sym : null;
     }
     // Apply focus the MOMENT a gene is typed in and found. `input` fires on every
-    // keystroke and when an option is picked from the datalist, so the views update
-    // immediately (not only on blur/Enter, which is what `change` waits for).
-    $('focusInput').addEventListener('input', function () {
-      if (!$('focusInput').value.trim()) { clearFocus(); return; }
-      var sym = matchedSym();
-      if (sym && sym !== state.focus) focusGene(sym);
-    });
-    $('focusInput').addEventListener('change', function () {   // fallback: Enter / blur
-      var sym = matchedSym();
-      if (sym && sym !== state.focus) focusGene(sym);
-    });
-    $('focusInput').addEventListener('keydown', function (e) { if (e.key === 'Escape') { $('focusInput').value = ''; clearFocus(); } });
-    $('focusClear').addEventListener('click', function () { $('focusInput').value = ''; clearFocus(); $('focusInput').focus(); });
-    $('netClear').addEventListener('click', function () { $('focusInput').value = ''; clearFocus(); });
+    // keystroke and on a datalist pick, so views update immediately (not only on
+    // blur/Enter). Wired identically on the desktop box and the mobile control bar.
+    function wireFocus(inputId, clearId) {
+      var inp = $(inputId); if (!inp) return;
+      inp.addEventListener('input', function () {
+        if (!inp.value.trim()) { clearFocus(); return; }
+        var sym = matchedSym(inp.value);
+        if (sym && sym !== state.focus) focusGene(sym);
+      });
+      inp.addEventListener('change', function () { var sym = matchedSym(inp.value); if (sym && sym !== state.focus) focusGene(sym); });
+      inp.addEventListener('keydown', function (e) { if (e.key === 'Escape') { inp.value = ''; clearFocus(); } });
+      if (clearId && $(clearId)) $(clearId).addEventListener('click', function () { inp.value = ''; clearFocus(); inp.focus(); });
+    }
+    wireFocus('focusInput', 'focusClear');
+    wireFocus('mFocusInput', 'mFocusClear');
+    $('netClear').addEventListener('click', function () { clearFocus(); });
     $('limitRange').addEventListener('input', function () { state.limit = +$('limitRange').value; $('limitVal').textContent = state.limit; renderActiveView(); });
     $('themeBtn').addEventListener('click', toggleTheme);
     $('srcBtn').addEventListener('click', function () { var ins = $('insight'); var open = ins.classList.toggle('hidden') === false; $('srcBtn').setAttribute('aria-pressed', open ? 'true' : 'false'); });
@@ -1041,6 +1066,12 @@
     $('menuBtn').addEventListener('click', function () { $('left').classList.toggle('open'); $('scrim').classList.toggle('show'); });
     $('dossierBtn').addEventListener('click', function () { $('drawer').classList.toggle('open'); $('scrim').classList.toggle('show'); });
     $('scrim').addEventListener('click', closeOverlays);
+    // explicit ✕ / grab-handle close on the mobile overlays (not only the scrim)
+    $('panelClose').addEventListener('click', closeOverlays);
+    $('drawerClose').addEventListener('click', closeOverlays);
+    $('sheetHandle').addEventListener('click', closeOverlays);
+    // touch: a glossary tap shows its tip (bindGloss); a tap anywhere else dismisses it
+    document.addEventListener('click', function (e) { if (!(e.target.closest && e.target.closest('.gloss'))) hideTip(); });
     // canvas clicks: single = open dossier, double = trace (enter focus mode)
     $('constellation').addEventListener('click', function (e) { var s = hitTest(cPos, e, $('constellation')); if (s) openGene(s); });
     $('constellation').addEventListener('dblclick', function (e) { var s = hitTest(cPos, e, $('constellation')); if (s) focusGene(s); });

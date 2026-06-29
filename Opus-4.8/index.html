@@ -358,23 +358,72 @@ details.collapse .dc-body{padding:0 11px 11px}
 @keyframes boot{to{width:100%}}
 
 /* ── responsive ───────────────────────────────────────────────────────────
-   ≥1024: 3-column. <1024: left panel + drawer become off-canvas overlays,
-   insight strip + ⓘ toggle hidden, ☰/▤ shown.                              */
+   ≥1024: 3-column canonical (unchanged). ≤1023: mobile layout (§7A) — a
+   persistent Hub+Focus bar, a bottom nav for the five views, an off-canvas
+   controls panel, and a bottom-sheet dossier.                                */
+/* mobile-only elements are hidden by default so desktop is byte-unchanged */
+#mbar,#mobileNav,.panel-mhead,.sheet-handle,.drawer-close,.panel-close,.mobile-only-sec{display:none}
+
 @media(min-width:1024px){
   .iconbtn.mobile-only{display:none}
+  .scrim{display:none}
 }
 @media(max-width:1023px){
   #srcBtn{display:none}
   .insight{display:none}
-  .panel{position:absolute; left:0; top:0; bottom:0; transform:translateX(-100%); transition:.22s; box-shadow:var(--shadow-lg)}
+
+  /* persistent primary controls (Hub + Focus) pinned under the header */
+  #mbar{display:flex; gap:8px; align-items:center; flex:0 0 auto; padding:7px 10px;
+    background:var(--surface-container-lowest); border-bottom:1px solid var(--outline-variant); box-shadow:var(--shadow); z-index:25}
+  #mHubSel{flex:0 0 auto; width:auto}
+  #mHubSel button{padding:9px 9px; font-size:12px}
+  .mbar-focus{flex:1 1 auto; position:relative}
+  #mFocusInput{width:100%; padding:9px 30px 9px 10px; border:1px solid var(--outline); border-radius:var(--radius-sm);
+    font-family:var(--sans); font-size:13px; background:var(--surface-container-lowest); color:var(--on-surface)}
+  #mFocusInput:focus{outline:none; border-color:var(--primary-bright)}
+  #mFocusClear{position:absolute; right:6px; top:50%; transform:translateY(-50%); border:0; background:transparent;
+    color:var(--on-surface-variant); font-size:17px; width:26px; height:26px; border-radius:5px; display:none}
+
+  /* off-canvas controls panel (☰): secondary controls + sources */
+  .panel{position:absolute; left:0; top:0; bottom:0; width:min(330px,88vw); transform:translateX(-100%); transition:.22s; box-shadow:var(--shadow-lg); z-index:20}
   .panel.open{transform:translateX(0)}
-  .drawer{position:absolute; right:0; top:0; bottom:0; width:min(420px,92vw); flex-basis:auto;
-    transform:translateX(100%); transition:.22s; box-shadow:var(--shadow-lg)}
-  .drawer.open{transform:translateX(0)}
-  .scrim{position:absolute; inset:0; background:rgba(11,28,48,.4); z-index:15; display:none}
+  .panel-mhead{display:flex; align-items:center; justify-content:space-between; padding:2px 0 10px; margin-bottom:12px; border-bottom:1px solid var(--outline-variant)}
+  .panel-mtitle{font-family:var(--display); font-weight:700; font-size:13px}
+  .desktop-only-sec{display:none}
+  .mobile-only-sec{display:block}
+
+  /* bottom-sheet dossier */
+  .drawer{position:absolute; left:0; right:0; bottom:0; top:auto; height:86%; width:auto; max-width:none; flex-basis:auto;
+    transform:translateY(100%); transition:transform .25s; z-index:20; box-shadow:var(--shadow-lg);
+    border-left:0; border-top:1px solid var(--outline-variant); border-radius:16px 16px 0 0}
+  .drawer.open{transform:translateY(0)}
+  .sheet-handle{display:block; width:40px; height:4px; border-radius:2px; background:var(--outline); margin:8px auto 0}
+  .drawer-close{display:inline-flex}
+  .drawer-head{padding-top:6px}
+
+  .scrim{position:absolute; inset:0; background:rgba(11,28,48,.45); z-index:15; display:none}
   .scrim.show{display:block}
+
+  /* bottom navigation for the five views */
+  #viewTabs{display:none}
+  #mobileNav{display:flex; flex:0 0 auto; background:var(--surface-container-lowest); border-top:1px solid var(--outline-variant);
+    z-index:30; padding-bottom:env(safe-area-inset-bottom,0px)}
+  #mobileNav button{flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; border:0; background:transparent;
+    padding:8px 2px 6px; min-height:48px; font-family:var(--sans); font-size:10px; font-weight:600; color:var(--on-surface-variant)}
+  #mobileNav button.active{color:var(--primary)}
+  #mobileNav .mn-ico{font-size:16px; line-height:1}
+
+  /* header fit + touch targets (§7A.4/5): the wordmark is the brand on mobile;
+     the secondary HADDTS logo is hidden here (it crowds/clips the narrow bar),
+     and its foundation link is offered in the ☰ Sources block instead. */
+  .wordmark{font-size:15.5px}
+  .by,.brand-div{display:none}
+  .iconbtn{width:44px; height:44px}
+  .gloss{width:18px; height:18px; font-size:10px}
+
+  /* obvious horizontal scroll for the wide evidence table */
+  .tbl-wrap{overflow-x:auto; -webkit-overflow-scrolling:touch}
 }
-@media(min-width:1024px){ .scrim{display:none} }
 </style>
 <script>/* set theme before first paint to avoid a flash (offline-safe) */
 (function(){try{var t=localStorage.getItem('ctbp-theme');if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
@@ -404,6 +453,19 @@ details.collapse .dc-body{padding:0 11px 11px}
   <button id="themeBtn" class="iconbtn theme-toggle" title="Toggle dark mode" aria-label="Toggle dark mode">☾</button>
 </header>
 
+<!-- mobile-only persistent control bar: Hub + Focus always visible (§7A.1) -->
+<div id="mbar" aria-label="Primary controls">
+  <div class="segmented" id="mHubSel" role="group" aria-label="Hub selection">
+    <button data-hub="CTBP1">CTBP1</button>
+    <button data-hub="CTBP2">CTBP2</button>
+    <button data-hub="Both" class="active">Both</button>
+  </div>
+  <div class="focus-wrap mbar-focus">
+    <input id="mFocusInput" list="geneList" placeholder="Trace a gene…" autocomplete="off">
+    <button id="mFocusClear" title="Clear focus" aria-label="Clear focus">✕</button>
+  </div>
+</div>
+
 <!-- closable provenance / insight strip (collapsed by default, desktop-only) -->
 <section id="insight" class="insight hidden" aria-label="Sources and methods">
   <button class="iconbtn closebtn" id="insightClose" title="Close" aria-label="Close sources strip">✕</button>
@@ -422,7 +484,8 @@ details.collapse .dc-body{padding:0 11px 11px}
 <div id="shell">
 <div id="layout">
   <aside id="left" class="panel" aria-label="Controls">
-    <div class="sec">
+    <div class="panel-mhead"><span class="panel-mtitle">Controls</span><button class="iconbtn panel-close" id="panelClose" title="Close" aria-label="Close controls">✕</button></div>
+    <div class="sec desktop-only-sec">
       <div class="sec-h">Hub <span class="gloss" data-gloss="hub">i</span></div>
       <div class="segmented" id="hubSel" role="group" aria-label="Hub selection">
         <button data-hub="CTBP1">CTBP1</button>
@@ -432,7 +495,7 @@ details.collapse .dc-body{padding:0 11px 11px}
       <div class="sec-note" id="hubRollup"></div>
     </div>
 
-    <div class="sec">
+    <div class="sec desktop-only-sec">
       <div class="sec-h">Focus gene <span class="gloss" data-gloss="focus">i</span></div>
       <div class="focus-wrap">
         <input id="focusInput" list="geneList" placeholder="Trace a partner gene…" autocomplete="off">
@@ -451,6 +514,11 @@ details.collapse .dc-body{padding:0 11px 11px}
       <div class="sec-h">Display limit</div>
       <input type="range" id="limitRange" min="10" max="250" step="5" value="80">
       <div class="sec-note">Drawing the top <span class="limit-val" id="limitVal">80</span> interactors by composite.</div>
+    </div>
+
+    <div class="sec mobile-only-sec" id="mobileSourcesSec">
+      <div class="sec-h">Sources &amp; export</div>
+      <div id="mobileSources"></div>
     </div>
   </aside>
 
@@ -482,9 +550,11 @@ details.collapse .dc-body{padding:0 11px 11px}
   </section>
 
   <aside id="drawer" class="drawer" aria-label="Dossier">
+    <div class="sheet-handle" id="sheetHandle"></div>
     <div class="drawer-head">
       <button class="homebtn" id="drawerHome" title="Back to hub">⌂ Hub</button>
       <div class="drawer-title"><h3 id="drawerTitle">CtBP corepressor pair</h3><div class="sub" id="drawerSub"></div></div>
+      <button class="iconbtn drawer-close" id="drawerClose" title="Close" aria-label="Close dossier">✕</button>
     </div>
     <div class="drawer-body" id="drawerBody"></div>
   </aside>
@@ -492,6 +562,15 @@ details.collapse .dc-body{padding:0 11px 11px}
   <div class="scrim" id="scrim"></div>
 </div>
 </div>
+
+<!-- mobile-only bottom navigation for the five views (§7A.2) -->
+<nav id="mobileNav" aria-label="Views">
+  <button data-view="constellation" class="active"><span class="mn-ico">✦</span>Map</button>
+  <button data-view="table"><span class="mn-ico">▤</span>Table</button>
+  <button data-view="findings"><span class="mn-ico">◧</span>Findings</button>
+  <button data-view="discoveries"><span class="mn-ico">✸</span>Leads</button>
+  <button data-view="network"><span class="mn-ico">⧉</span>Network</button>
+</nav>
 
 <div id="tooltip" role="tooltip"></div>
 
