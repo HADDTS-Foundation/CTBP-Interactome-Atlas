@@ -34,7 +34,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  APP_DIR: Opus-4.8        # ← the published version; bump this and push to switch
+  APP_DIR: fable_5         # ← the published version; bump this and push to switch
 
 jobs:
   deploy:
